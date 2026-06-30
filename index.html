@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diligências Técnicas · Painel de Custos de Deslocamento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.1/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b1020;
+  --bg-2:#0f1530;
+  --panel:#ffffff;
+  --panel-soft:#f7f8fc;
+  --border:#e6e9f2;
+  --text:#0f1730;
+  --text-soft:#4a5578;
+  --muted:#8a93b2;
+  --primary:#4f46e5;
+  --primary-2:#7c3aed;
+  --accent:#06b6d4;
+  --green:#10b981;
+  --amber:#f59e0b;
+  --red:#ef4444;
+  --shadow: 0 10px 30px rgba(15,23,48,.08), 0 2px 6px rgba(15,23,48,.04);
+  --shadow-lg: 0 25px 50px -12px rgba(15,23,48,.18);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:linear-gradient(180deg,#eef1fb 0%,#f4f6fc 100%);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh}
+h1,h2,h3,h4{font-family:'Plus Jakarta Sans','Inter',sans-serif;margin:0;color:var(--text)}
+button{font-family:inherit}
+.app{max-width:1480px;margin:0 auto;padding:28px 32px 60px}
+
+/* HEADER */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:28px}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-logo{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);display:grid;place-items:center;box-shadow:0 10px 25px rgba(79,70,229,.35);color:#fff}
+.brand-logo svg{width:26px;height:26px}
+.brand-text h1{font-size:22px;font-weight:800;letter-spacing:-.02em}
+.brand-text p{margin:2px 0 0;font-size:13px;color:var(--text-soft)}
+.topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(15,23,48,.12)}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-color:transparent}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-accent{background:linear-gradient(135deg,#06b6d4,#0ea5e9);color:#fff;border-color:transparent}
+.btn-ghost{background:transparent;box-shadow:none}
+.btn[disabled]{opacity:.55;cursor:not-allowed;transform:none!important}
+
+/* HERO / IMPORT */
+.hero{background:linear-gradient(135deg,#101839 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:24px;padding:28px 32px;position:relative;overflow:hidden;box-shadow:var(--shadow-lg);margin-bottom:24px}
+.hero::before{content:"";position:absolute;inset:auto -80px -100px auto;width:380px;height:380px;background:radial-gradient(closest-side,rgba(124,58,237,.55),transparent 70%);filter:blur(10px)}
+.hero::after{content:"";position:absolute;inset:-80px auto auto -80px;width:300px;height:300px;background:radial-gradient(closest-side,rgba(6,182,212,.35),transparent 70%)}
+.hero-inner{position:relative;display:grid;grid-template-columns:1.2fr 1fr;gap:30px;align-items:center}
+.hero h2{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.hero p{margin:0;color:#cbd5f5;font-size:14px;line-height:1.6;max-width:520px}
+.hero-tags{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+.tag{padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);font-size:12px;color:#e0e7ff;font-weight:500}
+.upload-card{background:rgba(255,255,255,.06);backdrop-filter:blur(10px);border:1.5px dashed rgba(255,255,255,.3);border-radius:18px;padding:24px;text-align:center;transition:all .25s;cursor:pointer}
+.upload-card.dragover{background:rgba(255,255,255,.14);border-color:#fff}
+.upload-card svg{width:42px;height:42px;color:#a5b4fc;margin-bottom:10px}
+.upload-card h3{color:#fff;font-size:16px;font-weight:700}
+.upload-card p{color:#cbd5f5;font-size:13px;margin:6px 0 14px}
+.upload-card .file-pill{display:inline-block;padding:6px 12px;border-radius:999px;background:rgba(16,185,129,.18);color:#6ee7b7;font-size:12px;font-weight:600;margin-top:8px}
+.file-input{display:none}
+.file-btn{display:inline-block;padding:9px 18px;border-radius:10px;background:#fff;color:var(--primary);font-weight:700;font-size:13px;cursor:pointer;transition:all .2s}
+.file-btn:hover{transform:translateY(-1px)}
+
+/* CONFIG STRIP */
+.config-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
+.cfg{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+.cfg label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:4px}
+.cfg .row{display:flex;align-items:center;gap:8px}
+.cfg input{width:100%;border:none;background:transparent;font-size:15px;font-weight:700;color:var(--text);outline:none;font-family:inherit}
+.cfg .suffix{font-size:12px;color:var(--muted);font-weight:600}
+
+/* KPI GRID */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.kpi{background:#fff;border-radius:18px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s}
+.kpi:hover{transform:translateY(-2px)}
+.kpi .kpi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.kpi .kpi-label{font-size:12px;color:var(--text-soft);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.kpi .kpi-icon{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff}
+.kpi .kpi-icon svg{width:18px;height:18px}
+.kpi .kpi-value{font-size:24px;font-weight:800;letter-spacing:-.02em;font-family:'Plus Jakarta Sans',sans-serif}
+.kpi .kpi-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.kpi.k1 .kpi-icon{background:linear-gradient(135deg,#4f46e5,#7c3aed)}
+.kpi.k2 .kpi-icon{background:linear-gradient(135deg,#06b6d4,#0ea5e9)}
+.kpi.k3 .kpi-icon{background:linear-gradient(135deg,#10b981,#059669)}
+.kpi.k4 .kpi-icon{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.kpi.k5 .kpi-icon{background:linear-gradient(135deg,#ef4444,#dc2626)}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:280px 1fr;gap:20px}
+.sidebar{background:#fff;border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;height:fit-content;position:sticky;top:20px}
+.sidebar h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.sidebar h3 svg{width:16px;height:16px;color:var(--primary)}
+.filter-group{margin-bottom:14px}
+.filter-group label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:5px}
+.filter-group select,.filter-group input{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:#fbfbfd;font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:all .15s}
+.filter-group select:focus,.filter-group input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.filter-actions{display:flex;gap:8px;margin-top:8px}
+.filter-actions .btn{flex:1;padding:8px;font-size:12px;justify-content:center}
+
+/* MAIN */
+.main-section{min-width:0}
+.panel{background:#fff;border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.panel-head h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px}
+.panel-head h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.panel-head .small-info{font-size:12px;color:var(--muted)}
+
+.chart-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+.chart-box{background:var(--panel-soft);border-radius:14px;padding:16px;border:1px solid var(--border)}
+.chart-box h4{font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:10px}
+.chart-wrap{position:relative;height:260px}
+
+/* TABLE */
+.table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--border);max-height:600px}
+table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+thead th{position:sticky;top:0;background:#f4f6fc;color:var(--text-soft);text-align:left;padding:11px 12px;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{background:#eef1fb}
+thead th .sort-ind{opacity:.4;margin-left:4px}
+thead th.sorted .sort-ind{opacity:1;color:var(--primary)}
+tbody td{padding:10px 12px;border-bottom:1px solid #f0f2f8;color:var(--text);vertical-align:top}
+tbody tr:hover{background:#fafbff}
+tbody tr.zebra{background:#fcfcff}
+.money{font-variant-numeric:tabular-nums;font-weight:600;color:#0f1730}
+.money-total{color:#dc2626;font-weight:800}
+.km{font-variant-numeric:tabular-nums;color:var(--text-soft)}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#eef2ff;color:#4338ca}
+.badge.bdg-period{background:#fef3c7;color:#92400e}
+.badge.bdg-period.dec{background:#dbeafe;color:#1e40af}
+.badge.bdg-type{background:#ecfeff;color:#0e7490}
+
+/* FOOT */
+.foot-info{margin-top:14px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;gap:10px}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--muted)}
+.empty svg{width:64px;height:64px;color:#cbd0e3;margin-bottom:12px}
+.empty h3{color:var(--text-soft);margin-bottom:6px;font-size:16px}
+.empty p{margin:0;font-size:13.5px}
+
+/* TOAST */
+.toast-wrap{position:fixed;top:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:9999}
+.toast{padding:12px 16px;background:#fff;border-left:4px solid var(--primary);border-radius:10px;box-shadow:0 12px 28px rgba(15,23,48,.18);font-size:13.5px;font-weight:500;min-width:280px;max-width:380px;animation:slideIn .3s ease;display:flex;gap:10px;align-items:flex-start}
+.toast.success{border-color:var(--green)}
+.toast.error{border-color:var(--red)}
+.toast.warn{border-color:var(--amber)}
+.toast svg{width:18px;height:18px;flex-shrink:0;margin-top:1px}
+.toast.success svg{color:var(--green)}
+.toast.error svg{color:var(--red)}
+.toast.warn svg{color:var(--amber)}
+.toast.info svg{color:var(--primary)}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+/* LOADING OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(11,16,32,.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center}
+.overlay.show{display:flex}
+.overlay-card{background:#fff;padding:28px 36px;border-radius:18px;text-align:center;box-shadow:var(--shadow-lg);min-width:280px}
+.spinner{width:42px;height:42px;border:4px solid #eef0f7;border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.overlay-card h4{font-size:15px;margin-bottom:4px}
+.overlay-card p{margin:0;font-size:13px;color:var(--text-soft)}
+.progress{margin-top:14px;height:6px;border-radius:999px;background:#eef0f7;overflow:hidden}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0%;transition:width .3s}
+
+/* RESPONSIVE */
+@media (max-width:1200px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{position:relative;top:0}
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .chart-grid{grid-template-columns:1fr}
+  .hero-inner{grid-template-columns:1fr}
+  .config-strip{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .kpis{grid-template-columns:1fr 1fr}
+  .config-strip{grid-template-columns:1fr}
+  .app{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>Diligências Técnicas</h1>
+        <p>Painel inteligente de custos de deslocamento · Assistência técnica</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" id="btnReload" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        Recarregar
+      </button>
+      <button class="btn btn-accent" id="btnExportCSV" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        CSV
+      </button>
+      <button class="btn btn-primary" id="btnExportPDF" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Exportar PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div>
+        <h2>Importe sua planilha, receba o custo de cada deslocamento.</h2>
+        <p>O sistema lê a aba <strong>Tarefas</strong>, identifica a unidade de saúde de cada chamado, estima a distância da base operacional vigente até o cliente e aplica as regras de cálculo de combustível, veículo e mão de obra rateada.</p>
+        <div class="hero-tags">
+          <span class="tag">📍 Base até Nov/2025: Duque de Caxias - RJ</span>
+          <span class="tag">📍 A partir de Dez/2025: Jardim Sulacap - RJ</span>
+          <span class="tag">⛽ R$ 5,50/L</span>
+          <span class="tag">🚗 70 km/h · 220h úteis/mês</span>
+        </div>
+      </div>
+      <label class="upload-card" id="uploadCard" for="fileInput">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h3>Importar planilha Excel</h3>
+        <p>Arraste o arquivo .xlsx aqui ou clique para selecionar</p>
+        <span class="file-btn">Selecionar arquivo</span>
+        <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv" />
+        <div id="fileStatus"></div>
+      </label>
+    </div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="config-strip">
+    <div class="cfg">
+      <label>⛽ Preço do combustível</label>
+      <div class="row"><span class="suffix">R$</span><input type="number" id="cfgFuelPrice" value="5.50" step="0.01" min="0" /><span class="suffix">/L</span></div>
+    </div>
+    <div class="cfg">
+      <label>🚗 Consumo médio do veículo</label>
+      <div class="row"><input type="number" id="cfgConsumo" value="10" step="0.5" min="1" /><span class="suffix">km/L</span></div>
+    </div>
+    <div class="cfg">
+      <label>💼 Custo mensal do veículo</label>
+      <div class="row"><span class="suffix">R$</span><input type="number" id="cfgVeic" value="2300" step="50" min="0" /></div>
+    </div>
+    <div class="cfg">
+      <label>👨‍🔧 Custo mensal do salário</label>
+      <div class="row"><span class="suffix">R$</span><input type="number" id="cfgSalario" value="4500" step="50" min="0" /></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpisContainer">
+    <div class="kpi k1">
+      <div class="kpi-top"><span class="kpi-label">Tarefas</span><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11H5a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7a2 2 0 0 0-2-2h-4"/><rect x="9" y="2" width="6" height="4" rx="1"/></svg></div></div>
+      <div class="kpi-value" id="kpiTotal">0</div>
+      <div class="kpi-sub" id="kpiTotalSub">Registros analisados</div>
+    </div>
+    <div class="kpi k2">
+      <div class="kpi-top"><span class="kpi-label">Distância total</span><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div></div>
+      <div class="kpi-value" id="kpiKm">0 km</div>
+      <div class="kpi-sub" id="kpiKmSub">Ida e volta acumulada</div>
+    </div>
+    <div class="kpi k3">
+      <div class="kpi-top"><span class="kpi-label">Combustível</span><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="22" x2="15" y2="22"/><line x1="4" y1="9" x2="14" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/></svg></div></div>
+      <div class="kpi-value" id="kpiFuel">R$ 0</div>
+      <div class="kpi-sub" id="kpiFuelSub">Custo de combustível</div>
+    </div>
+    <div class="kpi k4">
+      <div class="kpi-top"><span class="kpi-label">Horas viagem</span><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
+      <div class="kpi-value" id="kpiHoras">0 h</div>
+      <div class="kpi-sub" id="kpiHorasSub">Tempo total em deslocamento</div>
+    </div>
+    <div class="kpi k5">
+      <div class="kpi-top"><span class="kpi-label">Custo total</span><div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div></div>
+      <div class="kpi-value" id="kpiTotalCost">R$ 0</div>
+      <div class="kpi-sub" id="kpiTotalCostSub">Combustível + veículo + salário</div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <h3>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filtros
+      </h3>
+      <div class="filter-group">
+        <label>Busca livre</label>
+        <input type="text" id="fltSearch" placeholder="Cliente, código, tarefa..." />
+      </div>
+      <div class="filter-group">
+        <label>Tipo de tarefa</label>
+        <select id="fltTipo"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Cliente (Unidade)</label>
+        <select id="fltCliente"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Ano</label>
+        <select id="fltAno"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Mês</label>
+        <select id="fltMes"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-group">
+        <label>Técnico responsável</label>
+        <select id="fltResp"><option value="">Todos</option></select>
+      </div>
+      <div class="filter-actions">
+        <button class="btn btn-ghost" id="btnClearFilters">Limpar</button>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <section class="main-section">
+
+      <!-- CHARTS -->
+      <div class="panel" id="chartsPanel" style="display:none">
+        <div class="panel-head">
+          <h3><span class="dot"></span> Visão analítica</h3>
+          <span class="small-info" id="chartsInfo"></span>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-box">
+            <h4>Custo total por mês</h4>
+            <div class="chart-wrap"><canvas id="chartMes"></canvas></div>
+          </div>
+          <div class="chart-box">
+            <h4>Top 8 clientes por custo</h4>
+            <div class="chart-wrap"><canvas id="chartCli"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="panel">
+        <div class="panel-head">
+          <h3><span class="dot"></span> Registros</h3>
+          <span class="small-info" id="tableInfo">Aguardando importação...</span>
+        </div>
+        <div class="table-wrap" id="tableWrap">
+          <div class="empty" id="emptyState">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg>
+            <h3>Nenhum dado carregado</h3>
+            <p>Importe a planilha de tarefas para iniciar a análise de custos.</p>
+          </div>
+        </div>
+        <div class="foot-info" id="footInfo"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="spinner"></div>
+    <h4 id="overlayTitle">Processando...</h4>
+    <p id="overlayText">Aguarde um instante.</p>
+    <div class="progress" id="overlayProgressWrap" style="display:none"><div class="progress-bar" id="overlayProgressBar"></div></div>
+  </div>
+</div>
+
+<script>
+/* ==========================================================================
+   DILIGÊNCIAS TÉCNICAS - Cálculo de Custos de Deslocamento
+   ========================================================================== */
+
+// ---------- BASE DE DISTÂNCIAS PRÉ-CALCULADAS ----------
+// Coordenadas das bases operacionais
+const BASES = {
+  caxias: { name:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 },
+  sulacap:{ name:"Jardim Sulacap - RJ", lat:-22.8800, lon:-43.4150 }
+};
+// Destino externo de referência (Curitiba)
+const DESTINO_REF = { name:"Curitiba - PR", lat:-25.4284, lon:-49.2733 };
+
+/* Mapeamento manual cliente -> município / coordenadas aproximadas.
+   Quando a unidade não está aqui, o sistema tenta inferir pelo nome
+   (palavras-chave de cidade/bairro do RJ) e usa geocodificação leve.
+*/
+const CLIENT_MAP = {
+  // Curitiba - PR e região
+  "HOSPITAL SUGISAWA - CURITIBA PR": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "HOSPITAL NOVACLÍNICA - SÃO JOSE DOS PINHAIS PR": { city:"São José dos Pinhais", state:"PR", lat:-25.5359, lon:-49.2069 },
+  "HOSPITAL SÃO LUCAS - CURITIBA": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "HOSPITAL REGIONAL DE TOLEDO-PR": { city:"Toledo", state:"PR", lat:-24.7245, lon:-53.7414 },
+  "HOSPITAL UNIVERSITÁRIO EVANGÉLICO MACKENZIE  CLINILABOR LABORATORIO DE ANALISES CLINICAS": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "LABORATÓRIO MUNICIPAL DE CURITIBA": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "LABORATÓRIO VETERINÁRIO PRÓ VITA - CURITIBA": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "HCPM - POLÍCIA MILITAR DO ESTADO DO PARANÁ": { city:"Curitiba", state:"PR", lat:-25.4284, lon:-49.2733 },
+  "CAMPO LARGO VICENLAB - LABORATORIO DE ANALISES CLINICAS LTDA": { city:"Campo Largo", state:"PR", lat:-25.4528, lon:-49.5266 },
+  "SANTA CASA DE MISERICORDIA DE JACAREZINHO": { city:"Jacarezinho", state:"PR", lat:-23.1604, lon:-49.9706 },
+  "CENTRO DE DIAGNOSTICOS CLINICOS DE FLORIANOPOLIS LTDA": { city:"Florianópolis", state:"SC", lat:-27.5954, lon:-48.5480 },
+
+  // Rio de Janeiro - Capital
+  "HOSPITAL ESTADUAL CARLOS CHAGAS": { city:"Marechal Hermes - RJ", lat:-22.8717, lon:-43.3580 },
+  "HOSPITAL MUNICIPAL ALBERT SCHWEITZER": { city:"Realengo - RJ", lat:-22.8867, lon:-43.4290 },
+  "MATERNIDADE HUGO BRAGA": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "HOSPITAL GERAL DE NOVA IGUAÇU - HGNI": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "HOSP. UNIV. CLEMENTINO FRAGA FILHO (FUNDÃO)": { city:"Ilha do Fundão - RJ", lat:-22.8430, lon:-43.2380 },
+  "UPA 24H - VALENÇA": { city:"Valença - RJ", lat:-22.2453, lon:-43.7080 },
+  "UPA 24h - MANGUINHOS": { city:"Manguinhos - RJ", lat:-22.8762, lon:-43.2474 },
+  "INST. PUERICULTURA E PEDIAT. MARTAGÃO GESTEIRA (IPPMG)": { city:"Ilha do Fundão - RJ", lat:-22.8430, lon:-43.2380 },
+  "IECAC - INST. EST. CARD. ALOYSIO DE CASTRO": { city:"Rio de Janeiro - Centro", lat:-22.9099, lon:-43.2003 },
+  "CLINERP CLINICA DE VIDEO ENDOSCOPIA E REPRODUÇÃO HUMANA": { city:"Rio de Janeiro - Tijuca", lat:-22.9259, lon:-43.2356 },
+  "HOSPITAL ESTADUAL DOS LAGOS": { city:"Saquarema - RJ", lat:-22.9286, lon:-42.5099 },
+  "HOSPITAL ESCOLA LUIZ GIOSSFFI JANNUZZI - FUNDAÇÃO ARCOVERDE": { city:"Valença - RJ", lat:-22.2453, lon:-43.7080 },
+  "HOSPITAL ESTADUAL EDUARDO RABELLO": { city:"Campo Grande - RJ", lat:-22.9050, lon:-43.5610 },
+  "HOSPITAL MUNICIPAL EVANDRO FREIRE (CER ILHA)": { city:"Ilha do Governador - RJ", lat:-22.8087, lon:-43.2110 },
+  "HOSPITAL SÃO JOSE DO AVAÍ": { city:"Itaperuna - RJ", lat:-21.2050, lon:-41.8870 },
+  "LABORATÓRIO BLESSING ANÁLISES CLÍNICAS": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HEMORIO": { city:"Rio de Janeiro - Centro", lat:-22.9136, lon:-43.1958 },
+  "HOSPITAL FEDERAL DE BONSUCESSO": { city:"Bonsucesso - RJ", lat:-22.8643, lon:-43.2495 },
+  "HOSPITAL MUNICIPAL SOUZA AGUIAR": { city:"Centro - RJ", lat:-22.9099, lon:-43.1818 },
+  "HOSPITAL MUNICIPAL ROCHA FARIA": { city:"Campo Grande - RJ", lat:-22.9050, lon:-43.5610 },
+  "HOSPITAL MUNICIPAL RONALDO GAZOLLA": { city:"Acari - RJ", lat:-22.8389, lon:-43.3408 },
+  "HOSPITAL MUNICIPAL PEDRO II": { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 },
+  "HOSPITAL MUNICIPAL SAO FRANCISCO XAVIER": { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 },
+  "MATERNIDADE CARMELA DUTRA": { city:"Lins de Vasconcelos - RJ", lat:-22.8975, lon:-43.2829 },
+  "MATERNIDADE HERCULANO PINHEIRO": { city:"Madureira - RJ", lat:-22.8743, lon:-43.3375 },
+  "MATERNIDADE ESCOLA DA UFRJ": { city:"Laranjeiras - RJ", lat:-22.9333, lon:-43.1858 },
+  "MATERNIDADE FERNANDO MAGALHÃES": { city:"São Cristóvão - RJ", lat:-22.8975, lon:-43.2228 },
+  "MATERNIDADE ALEXANDER FLEMING": { city:"Marechal Hermes - RJ", lat:-22.8717, lon:-43.3580 },
+  "INTO - INST. NAC. TRAUMATOLOGIA E ORTOPEDIA": { city:"Centro - RJ", lat:-22.9020, lon:-43.2030 },
+  "IEC - INSTITUTO ESTADUAL DO CEREBRO": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "IEDE - INST EST DIABETES E ENDOCRINOLOGIA": { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 },
+  "INSTITUTO ESTADUAL DE ONCOLOGIA DA BAIXADA": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "HOSPITAL ESTADUAL ANCHIETA (CAJU)": { city:"Caju - RJ", lat:-22.8826, lon:-43.2167 },
+  "HOSPITAL ESTADUAL GETULIO VARGAS": { city:"Penha - RJ", lat:-22.8447, lon:-43.2779 },
+  "HOSP. ESTADUAL GETULIO VARGAS": { city:"Penha - RJ", lat:-22.8447, lon:-43.2779 },
+  "HOSPITAL ESTADUAL AZEVEDO LIMA": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL ESTADUAL ARY PARREIRAS": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL ESTADUAL ROBERTO CHABO": { city:"Araruama - RJ", lat:-22.8731, lon:-42.3439 },
+  "HOSPITAL ESTADUAL SANTA MARIA": { city:"Curicica - RJ", lat:-22.9433, lon:-43.4053 },
+  "HOSPITAL ESTADUAL PREF JOAO BAPTISTA CAFFARO": { city:"Itaboraí - RJ", lat:-22.7561, lon:-42.8597 },
+  "HOSPITAL CENTRAL DA AERONAUTICA - HCA": { city:"Galeão - RJ", lat:-22.8089, lon:-43.2436 },
+  "HOSPITAL DE AERONÁUTICA DOS AFONSOS (HFAA)": { city:"Campo dos Afonsos - RJ", lat:-22.8839, lon:-43.3953 },
+  "HOSPITAL DE FORÇA AÉREA DO GALEÃO - HFAG": { city:"Galeão - RJ", lat:-22.8089, lon:-43.2436 },
+  "HOSPITAL CENTRAL DO EXERCITO - HCE": { city:"Triagem - RJ", lat:-22.8929, lon:-43.2547 },
+  "HOSPITAL CENTRAL DA MARINHA - ILHA DAS COBRAS": { city:"Centro - RJ", lat:-22.8967, lon:-43.1697 },
+  "HCPM - HOSPITAL CENTRAL DA POLÍCIA MILITAR": { city:"Estácio - RJ", lat:-22.9119, lon:-43.2095 },
+  "HOSP. UNIV. GAFFRÉ E GUINLE": { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 },
+  "HOSP. UNIV. HÉSIO CORDEIRO": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "HOSPITAL ALCIDES CARNEIRO": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "HOSPITAL ADVENTISTA SILVESTRE": { city:"Cosme Velho - RJ", lat:-22.9408, lon:-43.1922 },
+  "HOSPITAL ADVENTISTA - ITABORAÍ": { city:"Itaboraí - RJ", lat:-22.7561, lon:-42.8597 },
+  "HOSPITAL ARMANDO VIDAL": { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 },
+  "HOSPITAL ASSIM MEIER": { city:"Méier - RJ", lat:-22.9008, lon:-43.2806 },
+  "HOSPITAL ASSIM TIJUCA": { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 },
+  "HOSPITAL BARRA DAY": { city:"Barra da Tijuca - RJ", lat:-23.0048, lon:-43.3654 },
+  "HOSPITAL BENEFICENCIA PORTUGUESA DE PETROPOLIS": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "HOSPITAL CENTRAL ARISTARCHO PESSOA (HCAP)": { city:"Lorena - SP", lat:-22.7350, lon:-45.1183 },
+  "HOSPITAL DA MULHER MARISKA RIBEIRO": { city:"Bangu - RJ", lat:-22.8786, lon:-43.4658 },
+  "HOSPITAL DA UNIMED BARRRA DA TIJUCA": { city:"Barra da Tijuca - RJ", lat:-23.0048, lon:-43.3654 },
+  "HOSPITAL DANIEL LIPP LTDA": { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 },
+  "HOSPITAL DAS CLÍNICAS DE GRAJAÚ": { city:"Grajaú - RJ", lat:-22.9213, lon:-43.2638 },
+  "HOSPITAL DE CLINICAS ALAMEDA": { city:"Botafogo - RJ", lat:-22.9519, lon:-43.1810 },
+  "HOSPITAL DE IRAJA": { city:"Irajá - RJ", lat:-22.8324, lon:-43.3274 },
+  "HOSPITAL DI CAMP LTDA": { city:"Campos dos Goytacazes - RJ", lat:-21.7625, lon:-41.3186 },
+  "HOSPITAL DO CORACAO SAMCORDIS": { city:"Centro - RJ", lat:-22.9099, lon:-43.1818 },
+  "HOSPITAL DO CORACAO SÃO JOSE - HMCORSJ": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL DOS PLANTADORES DE CANA": { city:"Campos dos Goytacazes - RJ", lat:-21.7625, lon:-41.3186 },
+  "HOSPITAL DRA. JAQUELINE PRATES": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "HOSPITAL Dra. ZILDA ARNS NEUMANN": { city:"Curicica - RJ", lat:-22.9433, lon:-43.4053 },
+  "HOSPITAL E MATERNIDADE SANTA BRIGIDA": { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 },
+  "HOSPITAL GERAL DE GUARUS": { city:"Campos dos Goytacazes - RJ", lat:-21.7625, lon:-41.3186 },
+  "HOSPITAL GERAL DE ITAGUAÍ - CEMERU": { city:"Itaguaí - RJ", lat:-22.8674, lon:-43.7755 },
+  "HOSPITAL GERAL DO RIO DE JANEIRO": { city:"Centro - RJ", lat:-22.9099, lon:-43.1818 },
+  "HOSPITAL GERAL FERREIRA MACHADO": { city:"Campos dos Goytacazes - RJ", lat:-21.7625, lon:-41.3186 },
+  "HOSPITAL GERAL PRONTONIL": { city:"Nilópolis - RJ", lat:-22.8053, lon:-43.4147 },
+  "HOSPITAL INFANTIL DE BELFORD ROXO": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "HOSPITAL ISRAELITA ALBERT SABIN": { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 },
+  "HOSPITAL JARDIM AMALIA LTDA - HINJA": { city:"Volta Redonda - RJ", lat:-22.5202, lon:-44.0996 },
+  "HOSPITAL JUSCELINO KUBITSCHEK": { city:"Realengo - RJ", lat:-22.8867, lon:-43.4290 },
+  "HOSPITAL MARIO KRÖEFF": { city:"Vila Isabel - RJ", lat:-22.9134, lon:-43.2530 },
+  "HOSPITAL MATERNIDADE SÃO JOÃO DE MERITI": { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 },
+  "HOSPITAL MEMORIAL ASSIM SÃO CRISTÓVÃO": { city:"São Cristóvão - RJ", lat:-22.8975, lon:-43.2228 },
+  "HOSPITAL MEMORIAL ENGENHO DE DENTRO": { city:"Engenho de Dentro - RJ", lat:-22.8919, lon:-43.2992 },
+  "HOSPITAL MEMORIAL SANTA CRUZ": { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 },
+  "HOSPITAL MUN OCEANICO - ACTIVE LAB SAUDE": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL MUNICIPAL CARLITO GONCALVES (CARAPEBUS)": { city:"Carapebus - RJ", lat:-22.1856, lon:-41.6633 },
+  "HOSPITAL MUNICIPAL CARLOS TORTELLY": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL MUNICIPAL CONDE MODESTO LEAL": { city:"Maricá - RJ", lat:-22.9192, lon:-42.8186 },
+  "HOSPITAL MUNICIPAL DA JAPUIBA": { city:"Angra dos Reis - RJ", lat:-23.0067, lon:-44.3186 },
+  "HOSPITAL MUNICIPAL DA MULHER": { city:"Heliópolis - RJ", lat:-22.7728, lon:-43.3203 },
+  "HOSPITAL MUNICIPAL DE MAGÉ": { city:"Magé - RJ", lat:-22.6533, lon:-43.0397 },
+  "HOSPITAL MUNICIPAL DO IDOSO ZILDA ARNS": { city:"Realengo - RJ", lat:-22.8867, lon:-43.4290 },
+  "HOSPITAL MUNICIPAL DR ERNESTO CHE GUEVARA": { city:"Mesquita - RJ", lat:-22.7833, lon:-43.4297 },
+  "HOSPITAL MUNICIPAL DR. CELSO MARTINS": { city:"Macaé - RJ", lat:-22.3708, lon:-41.7869 },
+  "HOSPITAL MUNICIPAL JOSE RABELLO DE MELLO - GUAPIMIRIN": { city:"Guapimirim - RJ", lat:-22.5350, lon:-42.9886 },
+  "HOSPITAL MUNICIPAL NAELMA MONTEIRO": { city:"Rio das Ostras - RJ", lat:-22.5269, lon:-41.9450 },
+  "Hospital Municipal Naelma Monteiro - Rio das Ostras": { city:"Rio das Ostras - RJ", lat:-22.5269, lon:-41.9450 },
+  "HOSPITAL MUNICIPAL NOSSA SENHORA DE NAZARETH": { city:"Saquarema - RJ", lat:-22.9286, lon:-42.5099 },
+  "HOSPITAL MUNICIPAL OCEANICO DR GILSON CANTARINO": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL MUNICIPAL OCEANICO DR GILSON CANTARINO(HMOGC)": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL MUNICIPAL OTIME CARDOSO DOS SANTOS": { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 },
+  "HOSPITAL MUNICIPAL PORPHÍRIO NUNES DE AZEREDO": { city:"Casimiro de Abreu - RJ", lat:-22.4839, lon:-42.2056 },
+  "HOSPITAL MUNICIPAL SÃO JOSÉ OPERÁRIO": { city:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 },
+  "HOSPITAL MUNICIPAL SÃO JOÃO DE MERITI": { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 },
+  "HOSPITAL MUNICIPALIZADO DO ANDARAI": { city:"Andaraí - RJ", lat:-22.9242, lon:-43.2492 },
+  "HOSPITAL MUNIPAL DE BELFORD ROXO - JOCA": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "HOSPITAL NOSSA SENHORAS DAS DORES (AREAL)": { city:"Areal - RJ", lat:-22.2293, lon:-43.1051 },
+  "HOSPITAL PEDIATRICO LAGOS": { city:"Cabo Frio - RJ", lat:-22.8889, lon:-42.0286 },
+  "HOSPITAL QUALI IPANEMA": { city:"Ipanema - RJ", lat:-22.9837, lon:-43.2033 },
+  "HOSPITAL SANTA CECÍLIA": { city:"Valença - RJ", lat:-22.2453, lon:-43.7080 },
+  "HOSPITAL SANTA IZABEL - CABO FRIO": { city:"Cabo Frio - RJ", lat:-22.8889, lon:-42.0286 },
+  "HOSPITAL SEMIU": { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 },
+  "HOSPITAL SÃO LUCAS": { city:"Copacabana - RJ", lat:-22.9711, lon:-43.1822 },
+  "HOSPITAL SÃO LUCAS - ICARAÍ": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL SÃO LUCAS NITERÓI ASSIM": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSPITAL SÃO MATHEUS": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "HOSPITAL SÃO VICENTE": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "HOSPITAL VIVER MAIS LTDA": { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 },
+  "HSCOR - HOSP. DO CORAÇÃO": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "Hospital Municipal Angela Maria Simões Menezes - Casimiro de Abreu": { city:"Casimiro de Abreu - RJ", lat:-22.4839, lon:-42.2056 },
+  "Hospital Municipal Paulino Werneck": { city:"Ilha do Governador - RJ", lat:-22.8087, lon:-43.2110 },
+  "MAT. MUNIC. MARIANA BULHOES - HOSPITAL IGUASSU": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "MATERNIDADE DE SANTA CRUZ DA SERRA": { city:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 },
+  "MATERNIDADE MUNICIPAL DE BELFORD ROXO": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "PAM MEIER - CÉSAR PERNETA": { city:"Méier - RJ", lat:-22.9008, lon:-43.2806 },
+  "POLICLINICA HOSPITAL DUQUE DE CAXIAS": { city:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 },
+  "POLICLÍNICA MUNICIPAL DEMERVAL GARCIA DE FREITAS": { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 },
+  "PROCEM - CENTRO DE ESPECIALIDADES MÉDICAS": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "PROCOR PRONTO SOCORRO CLINICO E CARDIOLOGICO LTDA": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "PRONTO ATENDIMENTO BARRA DA TIJUCA (UNIMED)": { city:"Barra da Tijuca - RJ", lat:-23.0048, lon:-43.3654 },
+  "PRONTO ATENDIMENTO COPACABANA (UNIMED)": { city:"Copacabana - RJ", lat:-22.9711, lon:-43.1822 },
+  "PRONTO SOCORRO MUNICIPAL - RIO DAS OSTRAS": { city:"Rio das Ostras - RJ", lat:-22.5269, lon:-41.9450 },
+  "SANATORIO NAVAL - NOVA FRIBURGO": { city:"Nova Friburgo - RJ", lat:-22.2819, lon:-42.5311 },
+  "SANTA CASA DE BOM JARDIM": { city:"Bom Jardim - RJ", lat:-22.1554, lon:-42.4178 },
+  "SANTA CASA DE MISERICORDIA DE BARRA MANSA": { city:"Barra Mansa - RJ", lat:-22.5446, lon:-44.1719 },
+  "SANTA CASA DE MISERICORDIA DE SAO JOAO DA BARRA": { city:"São João da Barra - RJ", lat:-21.6383, lon:-41.0511 },
+  "CASA DE SAUDE E MATERNIDADE TEREZINHA DE JESUS": { city:"Cordeiro - RJ", lat:-22.0286, lon:-42.3614 },
+  "CASA DE SAUDE NOSSA SENHORA AUXILIADORA": { city:"Três Rios - RJ", lat:-22.1167, lon:-43.2192 },
+  "CASA DE SAÚDE E MATERNIDADE SANTA MÔNICA": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "CASA DE SAÚDE JOÃO XXIII": { city:"Cordovil - RJ", lat:-22.8336, lon:-43.2986 },
+  "CASA DE SAÚDE NOSSA SENHORA DE FÁTIMA": { city:"Nilópolis - RJ", lat:-22.8053, lon:-43.4147 },
+  "CASA DE SAÚDE SANTA MARIA": { city:"Bonsucesso - RJ", lat:-22.8643, lon:-43.2495 },
+  "CEMERU - SANTA CRUZ": { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 },
+  "CENTRO MÉDICO SÃO JOSÉ DOS LÍRIOS  - HOSPITAL SÃO LUCAS ( SÃO GONÇALO)": { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 },
+  "CER - BARRA DA TIJUCA (UPA 24h)": { city:"Barra da Tijuca - RJ", lat:-23.0048, lon:-43.3654 },
+  "CIENCIA E VIDA LABORATORIO DE ANALISES CLINICAS": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "CLINICA MATER DEI RIO DAS OSTRAS": { city:"Rio das Ostras - RJ", lat:-22.5269, lon:-41.9450 },
+  "CLÍNICA VETERINÁRIA DE PETRÓPOLIS": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "EMCOR HOSPITAL DO CORACAO E DE CLINICAS DE N IGUACU LTDA": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "EQUIVET HOSPITAL VETERINARIO LTDA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "ESF ABRÃO - ANGRA DOS REIS": { city:"Angra dos Reis - RJ", lat:-23.0067, lon:-44.3186 },
+  "FLUXO DIAGNOSTICOS LTDA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "H3MED CENTRO DE ESPECIALIDADES E ATENDIMENTO GLOBAL": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "HOSP S. VICENTE DE PAULO (PRO MELHORAMENTOS)": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "HOSP. MUNIC. ARMANDO DA SILVA CARVALHO": { city:"Volta Redonda - RJ", lat:-22.5202, lon:-44.0996 },
+  "HOSP. MUNIC. MARIANA MARIA DE JESUS": { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 },
+  "HUMANIZALAB BELFORD ROXO": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "IRMANDADE NOSSA SENHORA DA PIEDADE": { city:"Magé - RJ", lat:-22.6533, lon:-43.0397 },
+  "J.M. LABORATORIO VETERINARIO LTDA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "KFURI VETERINARIA": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "LABMEDIC COMERCIO E MANUTENÇÃO DE EQUIPAMENTOS MÉDICOS": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "LABORATORIO DE ANALISES CLINICAS JÁ (B. MANSA)": { city:"Barra Mansa - RJ", lat:-22.5446, lon:-44.1719 },
+  "LABORATORIO EUFRASIA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "LABORATORIO FERREIRA PASSINI - BARRA MANSA": { city:"Barra Mansa - RJ", lat:-22.5446, lon:-44.1719 },
+  "LABORATORIO FERREIRA PASSINI - RESENDE": { city:"Resende - RJ", lat:-22.4685, lon:-44.4475 },
+  "LABORATORIO GERAL DR ALFREDO BERGER": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "LABORATÓRIO BIOEXAMES": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "LABORATÓRIO CDC - CABO FRIO": { city:"Cabo Frio - RJ", lat:-22.8889, lon:-42.0286 },
+  "LABORATÓRIO DA CIDADE - CMD - BELFORD ROXO": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
+  "LABORATÓRIO ENZIPHARMA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "LABORATÓRIO LAB HEALTH": { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 },
+  "LABORATÓRIO SANTA CRUZ - GRUPO LCA": { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 },
+  "LACE SAUDE - LABORATORIO DE ANALISES CLINICAS": { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 },
+  "OBIOLAB LABORATORIO DE ANALISES CLINICAS": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "PCA COMÉRCIO E SERVIÇOS VETERINÁRIOS LTDA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "AFETO FELINO HOSPITAL VETERINARIO": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "ANGRA LAB": { city:"Angra dos Reis - RJ", lat:-23.0067, lon:-44.3186 },
+  "ANTARES MEDICINA E DIAGNOSTICO": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "APMIR - RESENDE": { city:"Resende - RJ", lat:-22.4685, lon:-44.4475 },
+  "ARGEU DE OLIVEIRA - LABORATÓRIO": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "ASSOCIACAO LAR SAO FRANCISCO DE ASSIS NA PROVIDENCIA DE DEUS": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "ASSOCIAÇÃO SANTO ANTONIO DOS POBRES": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "Bioexames.": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
+  "Controllab": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 }
+};
+
+// Palavras-chave para inferência heurística de cidade/bairro
+const CITY_HINTS = [
+  ["CURITIBA", { city:"Curitiba - PR", lat:-25.4284, lon:-49.2733 }],
+  ["PARANÁ", { city:"Curitiba - PR", lat:-25.4284, lon:-49.2733 }],
+  ["FLORIANOPOLIS", { city:"Florianópolis - SC", lat:-27.5954, lon:-48.5480 }],
+  ["FLORIANÓPOLIS", { city:"Florianópolis - SC", lat:-27.5954, lon:-48.5480 }],
+  ["NOVA IGUAÇU", { city:"Nova Iguaçu - RJ", lat:-22.7556, lon:-43.4603 }],
+  ["BELFORD ROXO", { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 }],
+  ["DUQUE DE CAXIAS", { city:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 }],
+  ["SÃO JOÃO DE MERITI", { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 }],
+  ["SAO JOAO DE MERITI", { city:"São João de Meriti - RJ", lat:-22.8033, lon:-43.3722 }],
+  ["NITERÓI", { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 }],
+  ["NITEROI", { city:"Niterói - RJ", lat:-22.8833, lon:-43.1036 }],
+  ["SÃO GONÇALO", { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 }],
+  ["SAO GONCALO", { city:"São Gonçalo - RJ", lat:-22.8270, lon:-43.0537 }],
+  ["PETRÓPOLIS", { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 }],
+  ["PETROPOLIS", { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 }],
+  ["MACAÉ", { city:"Macaé - RJ", lat:-22.3708, lon:-41.7869 }],
+  ["MACAE", { city:"Macaé - RJ", lat:-22.3708, lon:-41.7869 }],
+  ["CAMPOS", { city:"Campos dos Goytacazes - RJ", lat:-21.7625, lon:-41.3186 }],
+  ["VOLTA REDONDA", { city:"Volta Redonda - RJ", lat:-22.5202, lon:-44.0996 }],
+  ["BARRA MANSA", { city:"Barra Mansa - RJ", lat:-22.5446, lon:-44.1719 }],
+  ["RESENDE", { city:"Resende - RJ", lat:-22.4685, lon:-44.4475 }],
+  ["CABO FRIO", { city:"Cabo Frio - RJ", lat:-22.8889, lon:-42.0286 }],
+  ["RIO DAS OSTRAS", { city:"Rio das Ostras - RJ", lat:-22.5269, lon:-41.9450 }],
+  ["FRIBURGO", { city:"Nova Friburgo - RJ", lat:-22.2819, lon:-42.5311 }],
+  ["ITABORAI", { city:"Itaboraí - RJ", lat:-22.7561, lon:-42.8597 }],
+  ["ITABORAÍ", { city:"Itaboraí - RJ", lat:-22.7561, lon:-42.8597 }],
+  ["ITAGUAÍ", { city:"Itaguaí - RJ", lat:-22.8674, lon:-43.7755 }],
+  ["ITAGUAI", { city:"Itaguaí - RJ", lat:-22.8674, lon:-43.7755 }],
+  ["MARICÁ", { city:"Maricá - RJ", lat:-22.9192, lon:-42.8186 }],
+  ["MARICA", { city:"Maricá - RJ", lat:-22.9192, lon:-42.8186 }],
+  ["ANGRA", { city:"Angra dos Reis - RJ", lat:-23.0067, lon:-44.3186 }],
+  ["VALENÇA", { city:"Valença - RJ", lat:-22.2453, lon:-43.7080 }],
+  ["VALENCA", { city:"Valença - RJ", lat:-22.2453, lon:-43.7080 }],
+  ["TOLEDO", { city:"Toledo - PR", lat:-24.7245, lon:-53.7414 }],
+  ["MAGÉ", { city:"Magé - RJ", lat:-22.6533, lon:-43.0397 }],
+  ["MAGE", { city:"Magé - RJ", lat:-22.6533, lon:-43.0397 }],
+  ["NILÓPOLIS", { city:"Nilópolis - RJ", lat:-22.8053, lon:-43.4147 }],
+  ["NILOPOLIS", { city:"Nilópolis - RJ", lat:-22.8053, lon:-43.4147 }],
+  ["MESQUITA", { city:"Mesquita - RJ", lat:-22.7833, lon:-43.4297 }],
+  ["GUAPIMIRIM", { city:"Guapimirim - RJ", lat:-22.5350, lon:-42.9886 }],
+  ["GUAPIMIRIN", { city:"Guapimirim - RJ", lat:-22.5350, lon:-42.9886 }],
+  ["SAQUAREMA", { city:"Saquarema - RJ", lat:-22.9286, lon:-42.5099 }],
+  ["ARARUAMA", { city:"Araruama - RJ", lat:-22.8731, lon:-42.3439 }],
+  ["ITAPERUNA", { city:"Itaperuna - RJ", lat:-21.2050, lon:-41.8870 }],
+  ["CASIMIRO DE ABREU", { city:"Casimiro de Abreu - RJ", lat:-22.4839, lon:-42.2056 }],
+  ["AREAL", { city:"Areal - RJ", lat:-22.2293, lon:-43.1051 }],
+  ["FUNDÃO", { city:"Ilha do Fundão - RJ", lat:-22.8430, lon:-43.2380 }],
+  ["FUNDAO", { city:"Ilha do Fundão - RJ", lat:-22.8430, lon:-43.2380 }],
+  ["BARRA DA TIJUCA", { city:"Barra da Tijuca - RJ", lat:-23.0048, lon:-43.3654 }],
+  ["TIJUCA", { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 }],
+  ["IPANEMA", { city:"Ipanema - RJ", lat:-22.9837, lon:-43.2033 }],
+  ["COPACABANA", { city:"Copacabana - RJ", lat:-22.9711, lon:-43.1822 }],
+  ["CAMPO GRANDE", { city:"Campo Grande - RJ", lat:-22.9050, lon:-43.5610 }],
+  ["SANTA CRUZ", { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 }],
+  ["BANGU", { city:"Bangu - RJ", lat:-22.8786, lon:-43.4658 }],
+  ["REALENGO", { city:"Realengo - RJ", lat:-22.8867, lon:-43.4290 }],
+  ["MADUREIRA", { city:"Madureira - RJ", lat:-22.8743, lon:-43.3375 }],
+  ["IRAJÁ", { city:"Irajá - RJ", lat:-22.8324, lon:-43.3274 }],
+  ["IRAJA", { city:"Irajá - RJ", lat:-22.8324, lon:-43.3274 }],
+  ["MÉIER", { city:"Méier - RJ", lat:-22.9008, lon:-43.2806 }],
+  ["MEIER", { city:"Méier - RJ", lat:-22.9008, lon:-43.2806 }],
+  ["BOTAFOGO", { city:"Botafogo - RJ", lat:-22.9519, lon:-43.1810 }],
+  ["BONSUCESSO", { city:"Bonsucesso - RJ", lat:-22.8643, lon:-43.2495 }],
+  ["GRAJAÚ", { city:"Grajaú - RJ", lat:-22.9213, lon:-43.2638 }],
+  ["GRAJAU", { city:"Grajaú - RJ", lat:-22.9213, lon:-43.2638 }],
+  ["JACAREZINHO", { city:"Jacarezinho - PR", lat:-23.1604, lon:-49.9706 }],
+  ["BOM JARDIM", { city:"Bom Jardim - RJ", lat:-22.1554, lon:-42.4178 }]
+];
+
+// ---------- STATE ----------
+const State = {
+  raw: [],         // linhas brutas
+  rows: [],        // linhas com cálculos
+  filtered: [],
+  sortKey: null,
+  sortDir: 1,
+  chartMes: null,
+  chartCli: null,
+  fileName: null
+};
+
+// ---------- UTILS ----------
+const $ = id => document.getElementById(id);
+const fmtBRL = v => "R$ " + (v||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtBRLshort = v => {
+  if (v >= 1e6) return "R$ " + (v/1e6).toFixed(2)+"M";
+  if (v >= 1e3) return "R$ " + (v/1e3).toFixed(1)+"K";
+  return "R$ " + (v||0).toFixed(0);
+};
+const fmtKm = v => (v||0).toLocaleString("pt-BR",{maximumFractionDigits:1}) + " km";
+const fmtHr = v => (v||0).toLocaleString("pt-BR",{maximumFractionDigits:1}) + " h";
+
+function toast(msg, type="info", duration=4000){
+  const t = document.createElement("div");
+  t.className = "toast " + type;
+  const icons = {
+    info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    success:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+    warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>'
+  };
+  t.innerHTML = (icons[type]||icons.info) + "<span>"+msg+"</span>";
+  $("toastWrap").appendChild(t);
+  setTimeout(()=>{t.style.opacity="0";t.style.transform="translateX(20px)";setTimeout(()=>t.remove(),300)}, duration);
+}
+
+function showOverlay(title, text){
+  $("overlayTitle").textContent = title||"Processando...";
+  $("overlayText").textContent = text||"Aguarde um instante.";
+  $("overlayProgressWrap").style.display = "none";
+  $("overlay").classList.add("show");
+}
+function hideOverlay(){ $("overlay").classList.remove("show"); }
+
+// Haversine distance in km
+function haversine(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2-lat1);
+  const dLon = toRad(lon2-lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Resolver coordenadas da unidade
+function resolveLocation(clientName){
+  if (!clientName) return null;
+  const norm = clientName.trim();
+  if (CLIENT_MAP[norm]) return CLIENT_MAP[norm];
+  // tenta heurística
+  const upper = norm.toUpperCase();
+  for (const [kw, loc] of CITY_HINTS){
+    if (upper.includes(kw)) return loc;
+  }
+  // fallback: centro do RJ
+  return { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
+}
+
+// Determinar base operacional pelo ano/mês
+// Até Novembro de 2025: Duque de Caxias
+// A partir de Dezembro de 2025: Jardim Sulacap
+function getBase(year, month){
+  if (year < 2025) return BASES.caxias;
+  if (year === 2025 && month <= 11) return BASES.caxias;
+  return BASES.sulacap;
+}
+
+// Parse date "dd/mm/yyyy" or ISO
+function parseDate(str){
+  if (!str) return null;
+  if (str instanceof Date) {
+    return { day:str.getDate(), month:str.getMonth()+1, year:str.getFullYear(), raw:str.toLocaleDateString("pt-BR") };
+  }
+  const s = String(str).trim();
+  // try dd/mm/yyyy
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) return { day:+m[1], month:+m[2], year:+m[3], raw:s };
+  // ISO
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return { day:+m[3], month:+m[2], year:+m[1], raw:`${m[3]}/${m[2]}/${m[1]}` };
+  return null;
+}
+
+const MES_NAMES = ["","Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+const MES_FULL = ["","Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+
+// ---------- IMPORT ----------
+function setupUpload(){
+  const card = $("uploadCard");
+  const input = $("fileInput");
+
+  ["dragenter","dragover"].forEach(ev=>{
+    card.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();card.classList.add("dragover")});
+  });
+  ["dragleave","drop"].forEach(ev=>{
+    card.addEventListener(ev, e=>{e.preventDefault();e.stopPropagation();card.classList.remove("dragover")});
+  });
+  card.addEventListener("drop", e=>{
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+  input.addEventListener("change", e=>{
+    const f = e.target.files[0];
+    if (f) handleFile(f);
+  });
+}
+
+function handleFile(file){
+  State.fileName = file.name;
+  $("fileStatus").innerHTML = '<div class="file-pill">✓ '+file.name+'</div>';
+  showOverlay("Lendo planilha...", "Carregando "+file.name);
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type:"array", cellDates:true });
+      processWorkbook(wb);
+    } catch (err){
+      console.error(err);
+      hideOverlay();
+      toast("Erro ao ler o arquivo: " + err.message, "error", 6000);
+    }
+  };
+  reader.onerror = () => { hideOverlay(); toast("Erro ao carregar arquivo.", "error"); };
+  reader.readAsArrayBuffer(file);
+}
+
+function processWorkbook(wb){
+  // Busca aba "Tarefas" (case-insensitive)
+  let sheetName = wb.SheetNames.find(s => s.toLowerCase().includes("tarefa"));
+  if (!sheetName) sheetName = wb.SheetNames[0];
+  const sheet = wb.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json(sheet, { header:1, raw:false, defval:"" });
+
+  // Encontrar linha de cabeçalho (contém "Codigo" e "Cliente")
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(20, aoa.length); i++){
+    const row = aoa[i];
+    if (!row) continue;
+    const joined = row.join("|").toLowerCase();
+    if (joined.includes("codigo") && joined.includes("cliente")) { headerIdx = i; break; }
+  }
+  if (headerIdx === -1){
+    hideOverlay();
+    toast("Não foi possível localizar o cabeçalho na planilha.", "error");
+    return;
+  }
+
+  const rows = [];
+  for (let i = headerIdx + 1; i < aoa.length; i++){
+    const r = aoa[i];
+    if (!r || !r[0]) continue;
+    rows.push({
+      codigo: String(r[0]).trim(),
+      dataRaw: r[1],
+      tipo: String(r[2]||"").trim(),
+      tarefaDe: String(r[3]||"").trim(),
+      responsavel: String(r[4]||"").trim(),
+      cliente: String(r[5]||"").trim()
+    });
+  }
+
+  if (!rows.length){
+    hideOverlay();
+    toast("Nenhum registro encontrado na planilha.", "warn");
+    return;
+  }
+
+  State.raw = rows;
+  computeCosts();
+  hideOverlay();
+  toast(rows.length+" registros importados com sucesso.", "success");
+  $("btnReload").disabled = false;
+  $("btnExportCSV").disabled = false;
+  $("btnExportPDF").disabled = false;
+  $("chartsPanel").style.display = "block";
+  populateFilters();
+  applyFilters();
+}
+
+// ---------- CALCULO ----------
+function computeCosts(){
+  const fuelPrice = parseFloat($("cfgFuelPrice").value) || 5.50;
+  const consumo = parseFloat($("cfgConsumo").value) || 10;
+  const veicCost = parseFloat($("cfgVeic").value) || 2300;
+  const salCost = parseFloat($("cfgSalario").value) || 4500;
+  const HORAS_MES = 220;
+
+  const rows = State.raw.map(r => {
+    const dt = parseDate(r.dataRaw);
+    const ano = dt ? dt.year : null;
+    const mes = dt ? dt.month : null;
+    const base = dt ? getBase(ano, mes) : BASES.caxias;
+    const loc = resolveLocation(r.cliente);
+    let distOneWay = 0, dist = 0, tempo = 0;
+    let cidade = "—";
+    if (loc){
+      distOneWay = haversine(base.lat, base.lon, loc.lat, loc.lon);
+      // Aproximação rodoviária: + 25% sobre distância em linha reta
+      distOneWay = distOneWay * 1.25;
+      dist = distOneWay * 2; // ida e volta
+      tempo = dist / 70;
+      cidade = loc.city + (loc.estimated ? " *" : "");
+    }
+    const fuel = (dist / consumo) * fuelPrice;
+    const veic = veicCost * (tempo / HORAS_MES);
+    const sal = salCost * (tempo / HORAS_MES);
+    const total = fuel + veic + sal;
+    return {
+      ...r,
+      ano, mes, base: base.name, baseShort: base === BASES.caxias ? "Caxias" : "Sulacap",
+      cidade,
+      distKm: dist,
+      tempoH: tempo,
+      custoFuel: fuel,
+      custoVeic: veic,
+      custoSal: sal,
+      custoTotal: total,
+      dataFormat: dt ? dt.raw : (r.dataRaw||"")
+    };
+  });
+
+  State.rows = rows;
+}
+
+// ---------- FILTROS ----------
+function populateFilters(){
+  const tipos = new Set(), clientes = new Set(), anos = new Set(), meses = new Set(), resps = new Set();
+  State.rows.forEach(r => {
+    if (r.tipo) tipos.add(r.tipo);
+    if (r.cliente) clientes.add(r.cliente);
+    if (r.ano) anos.add(r.ano);
+    if (r.mes) meses.add(r.mes);
+    if (r.responsavel) resps.add(r.responsavel);
+  });
+  const fill = (id, items, formatter) => {
+    const sel = $(id);
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos</option>' + items.map(v => `<option value="${v}">${formatter?formatter(v):v}</option>`).join("");
+    if (items.includes(cur) || items.map(String).includes(cur)) sel.value = cur;
+  };
+  fill("fltTipo", [...tipos].sort());
+  fill("fltCliente", [...clientes].sort());
+  fill("fltAno", [...anos].sort((a,b)=>a-b));
+  fill("fltMes", [...meses].sort((a,b)=>a-b), v => `${String(v).padStart(2,"0")} - ${MES_FULL[v]}`);
+  fill("fltResp", [...resps].sort());
+}
+
+function applyFilters(){
+  const q = $("fltSearch").value.trim().toLowerCase();
+  const fTipo = $("fltTipo").value;
+  const fCli = $("fltCliente").value;
+  const fAno = $("fltAno").value;
+  const fMes = $("fltMes").value;
+  const fResp = $("fltResp").value;
+
+  State.filtered = State.rows.filter(r => {
+    if (q){
+      const blob = [r.codigo, r.cliente, r.tipo, r.responsavel, r.tarefaDe, r.cidade].join(" ").toLowerCase();
+      if (!blob.includes(q)) return false;
+    }
+    if (fTipo && r.tipo !== fTipo) return false;
+    if (fCli && r.cliente !== fCli) return false;
+    if (fAno && String(r.ano) !== fAno) return false;
+    if (fMes && String(r.mes) !== fMes) return false;
+    if (fResp && r.responsavel !== fResp) return false;
+    return true;
+  });
+
+  if (State.sortKey) sortFiltered();
+  updateKPIs();
+  renderTable();
+  renderCharts();
+}
+
+// ---------- KPIs ----------
+function updateKPIs(){
+  const rows = State.filtered;
+  const totals = rows.reduce((a,r) => {
+    a.km += r.distKm;
+    a.fuel += r.custoFuel;
+    a.veic += r.custoVeic;
+    a.sal += r.custoSal;
+    a.tot += r.custoTotal;
+    a.hours += r.tempoH;
+    return a;
+  }, {km:0,fuel:0,veic:0,sal:0,tot:0,hours:0});
+
+  $("kpiTotal").textContent = rows.length.toLocaleString("pt-BR");
+  $("kpiTotalSub").textContent = rows.length === State.rows.length ? "Todos os registros" : `de ${State.rows.length.toLocaleString("pt-BR")} totais`;
+  $("kpiKm").textContent = fmtKm(totals.km);
+  $("kpiKmSub").textContent = "Média " + (rows.length? (totals.km/rows.length).toFixed(1) : "0") + " km/tarefa";
+  $("kpiFuel").textContent = fmtBRLshort(totals.fuel);
+  $("kpiFuelSub").textContent = fmtBRL(totals.fuel);
+  $("kpiHoras").textContent = fmtHr(totals.hours);
+  $("kpiHorasSub").textContent = "Média " + (rows.length? (totals.hours/rows.length).toFixed(2) : "0") + " h/tarefa";
+  $("kpiTotalCost").textContent = fmtBRLshort(totals.tot);
+  $("kpiTotalCostSub").textContent = fmtBRL(totals.tot);
+}
+
+// ---------- TABLE ----------
+const COLS = [
+  { key:"codigo", label:"Código", w:90 },
+  { key:"dataFormat", label:"Data", w:90 },
+  { key:"tipo", label:"Tipo da tarefa", w:170 },
+  { key:"cliente", label:"Cliente (Unidade)", w:260 },
+  { key:"cidade", label:"Município/Local", w:170 },
+  { key:"baseShort", label:"Base", w:80 },
+  { key:"responsavel", label:"Técnico", w:140 },
+  { key:"distKm", label:"Dist. (km)", w:90, align:"right", fmt:fmtKm },
+  { key:"tempoH", label:"Tempo (h)", w:90, align:"right", fmt:v=>v.toFixed(2)+" h" },
+  { key:"custoFuel", label:"Combustível", w:110, align:"right", fmt:fmtBRL, cls:"money" },
+  { key:"custoVeic", label:"Veículo (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
+  { key:"custoSal", label:"Salário (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
+  { key:"custoTotal", label:"Custo total", w:120, align:"right", fmt:fmtBRL, cls:"money money-total" }
+];
+
+function sortFiltered(){
+  const key = State.sortKey;
+  const dir = State.sortDir;
+  State.filtered.sort((a,b)=>{
+    let va = a[key], vb = b[key];
+    if (typeof va === "string") va = va.toLowerCase();
+    if (typeof vb === "string") vb = vb.toLowerCase();
+    if (va < vb) return -1*dir;
+    if (va > vb) return 1*dir;
+    return 0;
+  });
+}
+
+function renderTable(){
+  const wrap = $("tableWrap");
+  if (!State.filtered.length){
+    wrap.innerHTML = '<div class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><h3>Nenhum registro encontrado</h3><p>Ajuste os filtros para visualizar os dados.</p></div>';
+    $("tableInfo").textContent = "0 registros";
+    $("footInfo").textContent = "";
+    return;
+  }
+
+  // Limite de exibição para performance
+  const MAX = 1000;
+  const showRows = State.filtered.slice(0, MAX);
+
+  let html = "<table><thead><tr>";
+  COLS.forEach(c => {
+    const sorted = State.sortKey === c.key ? "sorted" : "";
+    const arrow = State.sortKey === c.key ? (State.sortDir===1?"▲":"▼") : "▲▼";
+    html += `<th class="${sorted}" data-key="${c.key}" style="min-width:${c.w}px;text-align:${c.align||'left'}">${c.label}<span class="sort-ind">${arrow}</span></th>`;
+  });
+  html += "</tr></thead><tbody>";
+
+  showRows.forEach((r, i) => {
+    html += `<tr class="${i%2?'zebra':''}">`;
+    COLS.forEach(c => {
+      let v = r[c.key];
+      if (c.fmt) v = c.fmt(v);
+      const align = c.align ? `text-align:${c.align}` : "";
+      const cls = c.cls || "";
+      if (c.key === "baseShort"){
+        const dec = r.baseShort === "Sulacap";
+        v = `<span class="badge bdg-period ${dec?'dec':''}">${v}</span>`;
+      }
+      if (c.key === "tipo"){
+        v = `<span class="badge bdg-type">${v}</span>`;
+      }
+      html += `<td class="${cls}" style="${align}">${v}</td>`;
+    });
+    html += "</tr>";
+  });
+  // Totalizadores no rodapé
+  const totals = State.filtered.reduce((a,r)=>{
+    a.km += r.distKm; a.h += r.tempoH; a.f += r.custoFuel;
+    a.v += r.custoVeic; a.s += r.custoSal; a.t += r.custoTotal; return a;
+  }, {km:0,h:0,f:0,v:0,s:0,t:0});
+  html += `<tr style="background:#f4f6fc;font-weight:700">
+    <td colspan="7" style="text-align:right">TOTAIS</td>
+    <td style="text-align:right">${fmtKm(totals.km)}</td>
+    <td style="text-align:right">${totals.h.toFixed(2)} h</td>
+    <td style="text-align:right" class="money">${fmtBRL(totals.f)}</td>
+    <td style="text-align:right" class="money">${fmtBRL(totals.v)}</td>
+    <td style="text-align:right" class="money">${fmtBRL(totals.s)}</td>
+    <td style="text-align:right" class="money money-total">${fmtBRL(totals.t)}</td>
+  </tr>`;
+  html += "</tbody></table>";
+
+  wrap.innerHTML = html;
+
+  // Header click sort
+  wrap.querySelectorAll("thead th").forEach(th => {
+    th.addEventListener("click", () => {
+      const k = th.dataset.key;
+      if (State.sortKey === k) State.sortDir *= -1;
+      else { State.sortKey = k; State.sortDir = 1; }
+      sortFiltered();
+      renderTable();
+    });
+  });
+
+  $("tableInfo").textContent = `${State.filtered.length.toLocaleString("pt-BR")} registros${State.filtered.length>MAX? ` (exibindo os primeiros ${MAX})`:""}`;
+  $("footInfo").innerHTML = `
+    <span>* Município marcado com asterisco indica estimativa heurística</span>
+    <span>Base operacional: <strong>Duque de Caxias</strong> até Nov/2025 · <strong>Jardim Sulacap</strong> a partir de Dez/2025</span>
+  `;
+}
+
+// ---------- CHARTS ----------
+function renderCharts(){
+  const rows = State.filtered;
+  $("chartsInfo").textContent = rows.length.toLocaleString("pt-BR") + " registros considerados";
+
+  // Mensal
+  const mesMap = {};
+  rows.forEach(r => {
+    if (!r.ano || !r.mes) return;
+    const k = `${r.ano}-${String(r.mes).padStart(2,"0")}`;
+    mesMap[k] = (mesMap[k]||0) + r.custoTotal;
+  });
+  const mesLabels = Object.keys(mesMap).sort();
+  const mesData = mesLabels.map(k => mesMap[k]);
+  const mesLabelsFmt = mesLabels.map(k => {
+    const [y, m] = k.split("-");
+    return MES_NAMES[+m] + "/" + y.slice(2);
+  });
+
+  // Cliente top 8
+  const cliMap = {};
+  rows.forEach(r => {
+    if (!r.cliente) return;
+    cliMap[r.cliente] = (cliMap[r.cliente]||0) + r.custoTotal;
+  });
+  const cliSorted = Object.entries(cliMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const cliLabels = cliSorted.map(c => c[0].length>34 ? c[0].slice(0,34)+"…" : c[0]);
+  const cliData = cliSorted.map(c => c[1]);
+
+  const colorBars = ["#4f46e5","#7c3aed","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#0ea5e9"];
+
+  if (State.chartMes) State.chartMes.destroy();
+  State.chartMes = new Chart($("chartMes"), {
+    type: "bar",
+    data: {
+      labels: mesLabelsFmt,
+      datasets: [{
+        label: "Custo Total (R$)",
+        data: mesData,
+        backgroundColor: ctx => {
+          const c = ctx.chart.ctx.createLinearGradient(0,0,0,260);
+          c.addColorStop(0,"#7c3aed"); c.addColorStop(1,"#4f46e5");
+          return c;
+        },
+        borderRadius: 8,
+        maxBarThickness: 38
+      }]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label: ctx => fmtBRL(ctx.parsed.y)}}
+      },
+      scales:{
+        y:{ticks:{callback: v => fmtBRLshort(v), font:{size:11}}, grid:{color:"#eef0f7"}},
+        x:{ticks:{font:{size:11}}, grid:{display:false}}
+      }
+    }
+  });
+
+  if (State.chartCli) State.chartCli.destroy();
+  State.chartCli = new Chart($("chartCli"), {
+    type: "bar",
+    data: {
+      labels: cliLabels,
+      datasets: [{
+        data: cliData,
+        backgroundColor: cliLabels.map((_,i)=>colorBars[i%colorBars.length]),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis:"y",
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label: ctx => fmtBRL(ctx.parsed.x)}}
+      },
+      scales:{
+        x:{ticks:{callback: v => fmtBRLshort(v), font:{size:10}}, grid:{color:"#eef0f7"}},
+        y:{ticks:{font:{size:10.5}}, grid:{display:false}}
+      }
+    }
+  });
+}
+
+// ---------- EXPORT ----------
+function exportCSV(){
+  if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
+  const headers = ["Código","Data","Tipo","Cliente","Município","Base","Tarefa De","Responsável","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Custo Total (R$)"];
+  const rows = State.filtered.map(r => [
+    r.codigo, r.dataFormat, r.tipo, r.cliente, r.cidade, r.base, r.tarefaDe, r.responsavel,
+    r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
+    r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoTotal.toFixed(2)
+  ]);
+  const csvLine = arr => arr.map(v => {
+    const s = String(v??"");
+    if (/[",;\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }).join(";");
+  const csv = "\uFEFF" + [csvLine(headers), ...rows.map(csvLine)].join("\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "diligencias_custos.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("CSV exportado.","success");
+}
+
+function exportPDF(){
+  if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
+  showOverlay("Gerando PDF...", "Renderizando relatório profissional");
+  setTimeout(() => {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+
+      // HEADER
+      doc.setFillColor(79,70,229);
+      doc.rect(0,0,pageW,22,"F");
+      doc.setFillColor(124,58,237);
+      doc.rect(pageW*0.6,0,pageW*0.4,22,"F");
+      doc.setTextColor(255,255,255);
+      doc.setFont("helvetica","bold");
+      doc.setFontSize(15);
+      doc.text("DILIGÊNCIAS TÉCNICAS · Relatório de Custos de Deslocamento", 12, 14);
+      doc.setFontSize(9);
+      doc.setFont("helvetica","normal");
+      const now = new Date().toLocaleString("pt-BR");
+      doc.text("Emitido em: " + now, pageW-12, 14, { align:"right" });
+
+      // KPI cards
+      const rows = State.filtered;
+      const totals = rows.reduce((a,r)=>{a.km+=r.distKm;a.h+=r.tempoH;a.f+=r.custoFuel;a.v+=r.custoVeic;a.s+=r.custoSal;a.t+=r.custoTotal;return a},{km:0,h:0,f:0,v:0,s:0,t:0});
+
+      const kpis = [
+        { label:"Tarefas",      value: rows.length.toLocaleString("pt-BR"),  color:[79,70,229] },
+        { label:"Distância",    value: fmtKm(totals.km),                     color:[6,182,212] },
+        { label:"Horas viagem", value: totals.h.toFixed(1)+" h",            color:[245,158,11] },
+        { label:"Combustível",  value: fmtBRL(totals.f),                    color:[16,185,129] },
+        { label:"Veículo",      value: fmtBRL(totals.v),                    color:[139,92,246] },
+        { label:"Salário",      value: fmtBRL(totals.s),                    color:[14,165,233] },
+        { label:"CUSTO TOTAL",  value: fmtBRL(totals.t),                    color:[239,68,68] }
+      ];
+      const cardW = (pageW - 24 - 6*4) / 7;
+      const cardH = 18;
+      let cx = 12, cy = 28;
+      kpis.forEach(k => {
+        doc.setFillColor(...k.color);
+        doc.roundedRect(cx, cy, cardW, cardH, 2, 2, "F");
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(7);
+        doc.setFont("helvetica","bold");
+        doc.text(k.label.toUpperCase(), cx+2.5, cy+5);
+        doc.setFontSize(k.label==="CUSTO TOTAL"?10:9.5);
+        doc.text(k.value, cx+2.5, cy+13);
+        cx += cardW + 4;
+      });
+
+      // Filtros aplicados
+      cy += cardH + 5;
+      doc.setTextColor(70,70,90);
+      doc.setFont("helvetica","bold"); doc.setFontSize(8);
+      const filtros = [];
+      if ($("fltTipo").value) filtros.push("Tipo: "+$("fltTipo").value);
+      if ($("fltCliente").value) filtros.push("Cliente: "+$("fltCliente").value);
+      if ($("fltAno").value) filtros.push("Ano: "+$("fltAno").value);
+      if ($("fltMes").value) filtros.push("Mês: "+MES_FULL[+$("fltMes").value]);
+      if ($("fltResp").value) filtros.push("Técnico: "+$("fltResp").value);
+      if ($("fltSearch").value) filtros.push("Busca: "+$("fltSearch").value);
+      doc.text("Filtros: " + (filtros.length? filtros.join(" · ") : "Nenhum (todos os registros)"), 12, cy);
+      cy += 5;
+
+      // Tabela
+      const headers = [["Código","Data","Tipo","Cliente","Município","Base","Técnico","Km","Tempo","Combust.","Veículo","Salário","Total"]];
+      const body = rows.map(r => [
+        r.codigo, r.dataFormat,
+        (r.tipo||"").substring(0,22),
+        (r.cliente||"").substring(0,38),
+        (r.cidade||"").substring(0,22),
+        r.baseShort,
+        (r.responsavel||"").substring(0,18),
+        r.distKm.toFixed(1),
+        r.tempoH.toFixed(2)+"h",
+        fmtBRL(r.custoFuel),
+        fmtBRL(r.custoVeic),
+        fmtBRL(r.custoSal),
+        fmtBRL(r.custoTotal)
+      ]);
+      const footRow = [{ content:"TOTAIS", colSpan:7, styles:{halign:"right", fontStyle:"bold"} },
+        fmtKm(totals.km),
+        totals.h.toFixed(1)+"h",
+        fmtBRL(totals.f),
+        fmtBRL(totals.v),
+        fmtBRL(totals.s),
+        fmtBRL(totals.t)
+      ];
+
+      doc.autoTable({
+        head: headers,
+        body: body,
+        foot: [footRow],
+        startY: cy,
+        margin: { left:12, right:12 },
+        styles: { fontSize:6.6, cellPadding:1.4, lineColor:[230,233,242], lineWidth:0.1, textColor:[40,40,55] },
+        headStyles: { fillColor:[79,70,229], textColor:[255,255,255], fontStyle:"bold", fontSize:7, halign:"center" },
+        footStyles: { fillColor:[239,242,255], textColor:[40,40,55], fontStyle:"bold", fontSize:7 },
+        columnStyles: {
+          0:{cellWidth:16,halign:"center"},
+          1:{cellWidth:17,halign:"center"},
+          2:{cellWidth:30},
+          3:{cellWidth:54},
+          4:{cellWidth:30},
+          5:{cellWidth:14,halign:"center"},
+          6:{cellWidth:26},
+          7:{cellWidth:15,halign:"right"},
+          8:{cellWidth:14,halign:"right"},
+          9:{cellWidth:20,halign:"right"},
+          10:{cellWidth:21,halign:"right"},
+          11:{cellWidth:21,halign:"right"},
+          12:{cellWidth:23,halign:"right",fontStyle:"bold",textColor:[185,28,28]}
+        },
+        alternateRowStyles: { fillColor:[251,252,255] },
+        didDrawPage: data => {
+          // Rodapé
+          const ph = doc.internal.pageSize.getHeight();
+          const pw = doc.internal.pageSize.getWidth();
+          doc.setDrawColor(220,222,235);
+          doc.line(12, ph-10, pw-12, ph-10);
+          doc.setFontSize(7);
+          doc.setTextColor(140,140,160);
+          doc.setFont("helvetica","normal");
+          doc.text("Diligências Técnicas · Painel de Custos · Página " + data.pageNumber, 12, ph-5);
+          doc.text("Parâmetros: " + $("cfgFuelPrice").value+" R$/L · "+$("cfgConsumo").value+" km/L · Veículo R$ "+$("cfgVeic").value+"/mês · Salário R$ "+$("cfgSalario").value+"/mês · 220h úteis/mês", pw-12, ph-5, { align:"right" });
+        }
+      });
+
+      doc.save("diligencias_relatorio.pdf");
+      hideOverlay();
+      toast("PDF gerado com sucesso.","success");
+    } catch (err){
+      hideOverlay();
+      console.error(err);
+      toast("Erro ao gerar PDF: " + err.message, "error", 6000);
+    }
+  }, 80);
+}
+
+// ---------- EVENT BINDINGS ----------
+function bindEvents(){
+  $("btnReload").addEventListener("click", () => $("fileInput").click());
+  $("btnExportCSV").addEventListener("click", exportCSV);
+  $("btnExportPDF").addEventListener("click", exportPDF);
+  $("btnClearFilters").addEventListener("click", () => {
+    ["fltSearch","fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => $(id).value = "");
+    applyFilters();
+  });
+  ["fltSearch","fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => {
+    $(id).addEventListener("input", applyFilters);
+    $(id).addEventListener("change", applyFilters);
+  });
+  ["cfgFuelPrice","cfgConsumo","cfgVeic","cfgSalario"].forEach(id => {
+    $(id).addEventListener("change", () => {
+      if (State.raw.length){
+        computeCosts();
+        applyFilters();
+        toast("Custos recalculados com novos parâmetros.","info",2500);
+      }
+    });
+  });
+}
+
+// ---------- INIT ----------
+setupUpload();
+bindEvents();
+</script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
