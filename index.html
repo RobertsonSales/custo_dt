@@ -11,30 +11,100 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.1/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#0b1020;
   --bg-2:#0f1530;
+  --app-bg-1:#eef1fb;
+  --app-bg-2:#f4f6fc;
   --panel:#ffffff;
   --panel-soft:#f7f8fc;
+  --panel-strong:#ffffff;
   --border:#e6e9f2;
+  --border-strong:#d4d9e8;
   --text:#0f1730;
   --text-soft:#4a5578;
   --muted:#8a93b2;
   --primary:#4f46e5;
   --primary-2:#7c3aed;
+  --primary-soft:#eef2ff;
   --accent:#06b6d4;
   --green:#10b981;
   --amber:#f59e0b;
   --red:#ef4444;
+  --input-bg:#fbfbfd;
+  --input-bg-focus:#ffffff;
+  --table-head:#f4f6fc;
+  --table-head-hover:#eef1fb;
+  --table-zebra:#fcfcff;
+  --table-row-hover:#fafbff;
+  --table-foot:#f4f6fc;
+  --badge-bg:#eef2ff;
+  --badge-fg:#4338ca;
+  --badge-period-bg:#fef3c7;
+  --badge-period-fg:#92400e;
+  --badge-period-dec-bg:#dbeafe;
+  --badge-period-dec-fg:#1e40af;
+  --badge-type-bg:#ecfeff;
+  --badge-type-fg:#0e7490;
+  --money-total:#dc2626;
+  --chart-grid:#eef0f7;
+  --chart-box-bg:#f7f8fc;
   --shadow: 0 10px 30px rgba(15,23,48,.08), 0 2px 6px rgba(15,23,48,.04);
   --shadow-lg: 0 25px 50px -12px rgba(15,23,48,.18);
   --radius: 16px;
   --radius-sm: 10px;
 }
+
+/* TEMA ESCURO */
+html[data-theme="dark"]{
+  --app-bg-1:#0b1020;
+  --app-bg-2:#0f1530;
+  --panel:#161c33;
+  --panel-soft:#1c2340;
+  --panel-strong:#1f2748;
+  --border:#2a3358;
+  --border-strong:#3a4470;
+  --text:#e8ecf8;
+  --text-soft:#b4bcd8;
+  --muted:#8089ad;
+  --primary:#818cf8;
+  --primary-2:#a78bfa;
+  --primary-soft:#2a2f5c;
+  --accent:#22d3ee;
+  --input-bg:#1c2340;
+  --input-bg-focus:#222a4a;
+  --table-head:#1c2340;
+  --table-head-hover:#222a4a;
+  --table-zebra:#1a2038;
+  --table-row-hover:#222a4a;
+  --table-foot:#1c2340;
+  --badge-bg:#2a2f5c;
+  --badge-fg:#c7d2fe;
+  --badge-period-bg:#3a2e0e;
+  --badge-period-fg:#fcd34d;
+  --badge-period-dec-bg:#1e2a4d;
+  --badge-period-dec-fg:#93c5fd;
+  --badge-type-bg:#0e3a44;
+  --badge-type-fg:#67e8f9;
+  --money-total:#f87171;
+  --chart-grid:#2a3358;
+  --chart-box-bg:#1c2340;
+  --shadow: 0 10px 30px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.25);
+  --shadow-lg: 0 25px 50px -12px rgba(0,0,0,.5);
+}
+
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;background:linear-gradient(180deg,#eef1fb 0%,#f4f6fc 100%);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh}
+html,body{margin:0;padding:0;background:linear-gradient(180deg,var(--app-bg-1) 0%,var(--app-bg-2) 100%);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;min-height:100vh;transition:background .25s ease, color .25s ease}
 h1,h2,h3,h4{font-family:'Plus Jakarta Sans','Inter',sans-serif;margin:0;color:var(--text)}
+.theme-toggle{display:inline-flex;align-items:center;gap:6px;padding:9px 12px;border-radius:12px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-weight:600;font-size:13px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.theme-toggle:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.12)}
+.theme-toggle svg{width:16px;height:16px}
+html[data-theme="dark"] .theme-toggle .icon-sun{display:inline-block}
+html[data-theme="dark"] .theme-toggle .icon-moon{display:none}
+html:not([data-theme="dark"]) .theme-toggle .icon-sun{display:none}
+html:not([data-theme="dark"]) .theme-toggle .icon-moon{display:inline-block}
 button{font-family:inherit}
 .app{max-width:1480px;margin:0 auto;padding:28px 32px 60px}
 
@@ -46,8 +116,8 @@ button{font-family:inherit}
 .brand-text h1{font-size:22px;font-weight:800;letter-spacing:-.02em}
 .brand-text p{margin:2px 0 0;font-size:13px;color:var(--text-soft)}
 .topbar-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:12px;border:1px solid var(--border);background:#fff;color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
-.btn:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(15,23,48,.12)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:11px 16px;border-radius:12px;border:1px solid var(--border);background:var(--panel);color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer;transition:all .2s;box-shadow:var(--shadow)}
+.btn:hover{transform:translateY(-1px);box-shadow:0 14px 30px rgba(0,0,0,.12)}
 .btn svg{width:16px;height:16px}
 .btn-primary{background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;border-color:transparent}
 .btn-primary:hover{filter:brightness(1.05)}
@@ -56,7 +126,26 @@ button{font-family:inherit}
 .btn[disabled]{opacity:.55;cursor:not-allowed;transform:none!important}
 
 /* HERO / IMPORT */
-.hero{background:linear-gradient(135deg,#101839 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:24px;padding:28px 32px;position:relative;overflow:hidden;box-shadow:var(--shadow-lg);margin-bottom:24px}
+.hero{background:linear-gradient(135deg,#101839 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:24px;padding:28px 32px;position:relative;overflow:hidden;box-shadow:var(--shadow-lg);margin-bottom:24px;transition:padding .35s ease, margin-bottom .35s ease}
+.hero.collapsed{padding:14px 22px;margin-bottom:18px}
+.hero.collapsed .hero-body{max-height:0;opacity:0;margin-top:0;pointer-events:none;overflow:hidden}
+.hero-body{max-height:1400px;opacity:1;transition:max-height .45s ease, opacity .3s ease, margin-top .35s ease;overflow:hidden}
+.hero-bar{display:flex;align-items:center;justify-content:space-between;gap:14px;position:relative;z-index:2}
+.hero-bar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.hero-bar-left .hero-bar-icon{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);flex:none}
+.hero-bar-left .hero-bar-icon svg{width:18px;height:18px;color:#c7d2fe}
+.hero-bar-title{display:flex;flex-direction:column;min-width:0}
+.hero-bar-title .ttl{font-family:'Plus Jakarta Sans','Inter',sans-serif;font-weight:700;color:#fff;font-size:15px;line-height:1.15}
+.hero-bar-title .sub{font-size:12px;color:#cbd5f5;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw}
+.hero-bar-right{display:flex;align-items:center;gap:8px;flex:none}
+.hero-status-pill{display:none;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(16,185,129,.18);color:#6ee7b7;font-size:12px;font-weight:600;border:1px solid rgba(16,185,129,.35);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hero-status-pill.show{display:inline-flex}
+.hero-status-pill svg{width:13px;height:13px;flex:none}
+.hero-toggle{appearance:none;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .2s, transform .2s}
+.hero-toggle:hover{background:rgba(255,255,255,.16)}
+.hero-toggle svg{width:14px;height:14px;transition:transform .35s ease}
+.hero.collapsed .hero-toggle svg{transform:rotate(180deg)}
+.hero-body-inner{margin-top:18px}
 .hero::before{content:"";position:absolute;inset:auto -80px -100px auto;width:380px;height:380px;background:radial-gradient(closest-side,rgba(124,58,237,.55),transparent 70%);filter:blur(10px)}
 .hero::after{content:"";position:absolute;inset:-80px auto auto -80px;width:300px;height:300px;background:radial-gradient(closest-side,rgba(6,182,212,.35),transparent 70%)}
 .hero-inner{position:relative;display:grid;grid-template-columns:1.2fr 1fr;gap:30px;align-items:center}
@@ -75,16 +164,18 @@ button{font-family:inherit}
 .file-btn:hover{transform:translateY(-1px)}
 
 /* CONFIG STRIP */
-.config-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.cfg{background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
+.config-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.cfg{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow)}
 .cfg label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:4px}
 .cfg .row{display:flex;align-items:center;gap:8px}
 .cfg input{width:100%;border:none;background:transparent;font-size:15px;font-weight:700;color:var(--text);outline:none;font-family:inherit}
+.cfg input::-webkit-outer-spin-button,.cfg input::-webkit-inner-spin-button{filter:invert(var(--invert-icons,0))}
+html[data-theme="dark"]{--invert-icons:1}
 .cfg .suffix{font-size:12px;color:var(--muted);font-weight:600}
 
 /* KPI GRID */
 .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
-.kpi{background:#fff;border-radius:18px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s}
+.kpi{background:var(--panel);border-radius:18px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s, background .25s, border-color .25s}
 .kpi:hover{transform:translateY(-2px)}
 .kpi .kpi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .kpi .kpi-label{font-size:12px;color:var(--text-soft);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
@@ -100,59 +191,62 @@ button{font-family:inherit}
 
 /* LAYOUT */
 .layout{display:grid;grid-template-columns:280px 1fr;gap:20px}
-.sidebar{background:#fff;border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;height:fit-content;position:sticky;top:20px}
+.sidebar{background:var(--panel);border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;height:fit-content;position:sticky;top:20px;transition:background .25s, border-color .25s}
 .sidebar h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .sidebar h3 svg{width:16px;height:16px;color:var(--primary)}
 .filter-group{margin-bottom:14px}
 .filter-group label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:5px}
-.filter-group select,.filter-group input{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:#fbfbfd;font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:all .15s}
-.filter-group select:focus,.filter-group input:focus{border-color:var(--primary);background:#fff;box-shadow:0 0 0 3px rgba(79,70,229,.12)}
+.filter-group select,.filter-group input{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:all .15s}
+.filter-group select:focus,.filter-group input:focus{border-color:var(--primary);background:var(--input-bg-focus);box-shadow:0 0 0 3px rgba(79,70,229,.22)}
+html[data-theme="dark"] .filter-group select option{background:var(--panel);color:var(--text)}
 .filter-actions{display:flex;gap:8px;margin-top:8px}
 .filter-actions .btn{flex:1;padding:8px;font-size:12px;justify-content:center}
 
 /* MAIN */
 .main-section{min-width:0}
-.panel{background:#fff;border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px}
+.panel{background:var(--panel);border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:20px;margin-bottom:20px;transition:background .25s, border-color .25s}
 .panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px}
 .panel-head h3{font-size:16px;font-weight:700;display:flex;align-items:center;gap:9px}
 .panel-head h3 .dot{width:8px;height:8px;border-radius:50%;background:var(--primary)}
 .panel-head .small-info{font-size:12px;color:var(--muted)}
 
 .chart-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
-.chart-box{background:var(--panel-soft);border-radius:14px;padding:16px;border:1px solid var(--border)}
+.chart-box{background:var(--chart-box-bg);border-radius:14px;padding:16px;border:1px solid var(--border);transition:background .25s, border-color .25s}
 .chart-box h4{font-size:13px;font-weight:600;color:var(--text-soft);margin-bottom:10px}
 .chart-wrap{position:relative;height:260px}
 
 /* TABLE */
 .table-wrap{overflow:auto;border-radius:12px;border:1px solid var(--border);max-height:600px}
-table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
-thead th{position:sticky;top:0;background:#f4f6fc;color:var(--text-soft);text-align:left;padding:11px 12px;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
-thead th:hover{background:#eef1fb}
+table{width:100%;border-collapse:collapse;font-size:13px;background:var(--panel)}
+thead th{position:sticky;top:0;background:var(--table-head);color:var(--text-soft);text-align:left;padding:11px 12px;font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;border-bottom:2px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{background:var(--table-head-hover)}
 thead th .sort-ind{opacity:.4;margin-left:4px}
 thead th.sorted .sort-ind{opacity:1;color:var(--primary)}
-tbody td{padding:10px 12px;border-bottom:1px solid #f0f2f8;color:var(--text);vertical-align:top}
-tbody tr:hover{background:#fafbff}
-tbody tr.zebra{background:#fcfcff}
-.money{font-variant-numeric:tabular-nums;font-weight:600;color:#0f1730}
-.money-total{color:#dc2626;font-weight:800}
+tbody td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:top}
+tbody tr:hover{background:var(--table-row-hover)}
+tbody tr.zebra{background:var(--table-zebra)}
+.money{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
+.money-total{color:var(--money-total);font-weight:800}
 .km{font-variant-numeric:tabular-nums;color:var(--text-soft)}
-.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;background:#eef2ff;color:#4338ca}
-.badge.bdg-period{background:#fef3c7;color:#92400e}
-.badge.bdg-period.dec{background:#dbeafe;color:#1e40af}
-.badge.bdg-type{background:#ecfeff;color:#0e7490}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--badge-bg);color:var(--badge-fg)}
+.badge.bdg-period{background:var(--badge-period-bg);color:var(--badge-period-fg)}
+.badge.bdg-period.dec{background:var(--badge-period-dec-bg);color:var(--badge-period-dec-fg)}
+.badge.bdg-period.pr{background:#dcfce7;color:#166534}
+html[data-theme="dark"] .badge.bdg-period.pr{background:#14352a;color:#86efac}
+.badge.bdg-type{background:var(--badge-type-bg);color:var(--badge-type-fg)}
 
 /* FOOT */
 .foot-info{margin-top:14px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;gap:10px}
 
 /* EMPTY */
 .empty{text-align:center;padding:48px 20px;color:var(--muted)}
-.empty svg{width:64px;height:64px;color:#cbd0e3;margin-bottom:12px}
+.empty svg{width:64px;height:64px;color:var(--border-strong);margin-bottom:12px}
 .empty h3{color:var(--text-soft);margin-bottom:6px;font-size:16px}
 .empty p{margin:0;font-size:13.5px}
 
 /* TOAST */
 .toast-wrap{position:fixed;top:20px;right:20px;display:flex;flex-direction:column;gap:10px;z-index:9999}
-.toast{padding:12px 16px;background:#fff;border-left:4px solid var(--primary);border-radius:10px;box-shadow:0 12px 28px rgba(15,23,48,.18);font-size:13.5px;font-weight:500;min-width:280px;max-width:380px;animation:slideIn .3s ease;display:flex;gap:10px;align-items:flex-start}
+.toast{padding:12px 16px;background:var(--panel);color:var(--text);border-left:4px solid var(--primary);border-radius:10px;box-shadow:0 12px 28px rgba(0,0,0,.25);font-size:13.5px;font-weight:500;min-width:280px;max-width:380px;animation:slideIn .3s ease;display:flex;gap:10px;align-items:flex-start}
 .toast.success{border-color:var(--green)}
 .toast.error{border-color:var(--red)}
 .toast.warn{border-color:var(--amber)}
@@ -166,12 +260,123 @@ tbody tr.zebra{background:#fcfcff}
 /* LOADING OVERLAY */
 .overlay{position:fixed;inset:0;background:rgba(11,16,32,.55);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center}
 .overlay.show{display:flex}
-.overlay-card{background:#fff;padding:28px 36px;border-radius:18px;text-align:center;box-shadow:var(--shadow-lg);min-width:280px}
-.spinner{width:42px;height:42px;border:4px solid #eef0f7;border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
+.overlay-card{background:var(--panel);color:var(--text);padding:28px 36px;border-radius:18px;text-align:center;box-shadow:var(--shadow-lg);min-width:280px}
+.spinner{width:42px;height:42px;border:4px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 12px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .overlay-card h4{font-size:15px;margin-bottom:4px}
 .overlay-card p{margin:0;font-size:13px;color:var(--text-soft)}
-.progress{margin-top:14px;height:6px;border-radius:999px;background:#eef0f7;overflow:hidden}
+.progress{margin-top:14px;height:6px;border-radius:999px;background:var(--border);overflow:hidden}
+
+/* ============================================================
+   MODAL DE PRÉ-VISUALIZAÇÃO DO PDF (independente do dashboard)
+   ============================================================ */
+.pdf-modal{position:fixed;inset:0;z-index:10000;background:rgba(8,12,28,.72);backdrop-filter:blur(6px);display:none;align-items:stretch;justify-content:center;padding:0}
+.pdf-modal.show{display:flex}
+.pdf-modal-wrap{width:100%;height:100%;display:flex;flex-direction:column;background:#f1f3f9}
+html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
+.pdf-modal-head{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.25);flex-shrink:0}
+.pdf-modal-head h3{color:#fff;font-size:16px;font-weight:700;display:flex;align-items:center;gap:10px}
+.pdf-modal-head h3 svg{width:20px;height:20px}
+.pdf-modal-head .pdf-actions{display:flex;gap:8px;flex-wrap:wrap}
+.pdf-modal-head .btn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);backdrop-filter:blur(4px)}
+.pdf-modal-head .btn:hover{background:rgba(255,255,255,.25)}
+.pdf-modal-head .btn.btn-primary{background:#fff;color:#312e81;border-color:#fff}
+.pdf-modal-head .btn.btn-primary:hover{background:#ede9fe;color:#312e81}
+.pdf-modal-body{flex:1;overflow:auto;padding:28px 18px;display:flex;flex-direction:column;align-items:center;gap:22px}
+
+/* PÁGINAS A4 LANDSCAPE (297x210mm => ~1123x794 @96dpi) */
+.pdf-page{width:1123px;max-width:100%;min-height:794px;background:#fff;color:#1a1f3a;box-shadow:0 18px 50px rgba(0,0,0,.35);position:relative;display:flex;flex-direction:column;font-family:'Inter',system-ui,sans-serif;font-size:11px;line-height:1.45}
+.pdf-page-inner{padding:24px 28px 50px;flex:1;display:flex;flex-direction:column}
+.pdf-page::after{content:attr(data-page-info);position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:10px;color:#6b7280;letter-spacing:.04em}
+
+/* Header de cada página */
+.pdf-header{display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#4f46e5 0%,#7c3aed 60%,#06b6d4 130%);color:#fff;padding:14px 22px;border-radius:8px;margin-bottom:18px;flex-shrink:0}
+.pdf-header h1{color:#fff;font-size:16px;font-weight:800;letter-spacing:-.01em;font-family:'Plus Jakarta Sans',sans-serif}
+.pdf-header .pdf-h-sub{font-size:11px;opacity:.9;margin-top:2px}
+.pdf-header .pdf-h-meta{text-align:right;font-size:10px;opacity:.92;line-height:1.5}
+
+/* CAPA */
+.pdf-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:680px;text-align:center;background:linear-gradient(135deg,#0f1530 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:8px;padding:60px 40px}
+.pdf-cover .cv-logo{width:74px;height:74px;border-radius:20px;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);display:grid;place-items:center;box-shadow:0 14px 35px rgba(124,58,237,.55);margin-bottom:28px}
+.pdf-cover .cv-logo svg{width:42px;height:42px;color:#fff}
+.pdf-cover h1{color:#fff;font-size:36px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;font-family:'Plus Jakarta Sans',sans-serif}
+.pdf-cover h2{color:#c7d2fe;font-size:18px;font-weight:600;margin-bottom:38px}
+.pdf-cover .cv-divider{width:80px;height:3px;background:linear-gradient(90deg,#06b6d4,#7c3aed);border-radius:999px;margin:0 auto 24px}
+.pdf-cover .cv-meta{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px 28px;margin-top:22px;max-width:680px;width:100%}
+.pdf-cover .cv-meta-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px 16px;text-align:left}
+.pdf-cover .cv-meta-card .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#a5b4fc;font-weight:700;margin-bottom:4px}
+.pdf-cover .cv-meta-card .val{font-size:13.5px;font-weight:600;color:#fff}
+.pdf-cover .cv-foot{margin-top:46px;font-size:11px;color:#94a3d4;opacity:.85}
+
+/* RESUMO EXECUTIVO / KPIs */
+.pdf-section-title{font-size:14px;font-weight:800;color:#1e1b4b;letter-spacing:-.01em;margin:0 0 12px;display:flex;align-items:center;gap:9px;font-family:'Plus Jakarta Sans',sans-serif}
+.pdf-section-title::before{content:"";width:5px;height:18px;background:linear-gradient(180deg,#4f46e5,#7c3aed);border-radius:3px}
+.pdf-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.pdf-kpi{border-radius:8px;padding:12px 14px;color:#fff;position:relative;overflow:hidden;min-height:74px;display:flex;flex-direction:column;justify-content:space-between}
+.pdf-kpi .lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.92}
+.pdf-kpi .val{font-size:20px;font-weight:800;letter-spacing:-.02em;font-family:'Plus Jakarta Sans',sans-serif}
+.pdf-kpi .sub{font-size:9.5px;opacity:.88;margin-top:2px}
+.pdf-kpi.k1{background:linear-gradient(135deg,#4f46e5,#7c3aed)}
+.pdf-kpi.k2{background:linear-gradient(135deg,#06b6d4,#0ea5e9)}
+.pdf-kpi.k3{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.pdf-kpi.k4{background:linear-gradient(135deg,#10b981,#059669)}
+.pdf-kpi.k5{background:linear-gradient(135deg,#8b5cf6,#6d28d9)}
+.pdf-kpi.k6{background:linear-gradient(135deg,#0ea5e9,#0369a1)}
+.pdf-kpi.k7{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+
+/* Parâmetros & filtros */
+.pdf-info-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:14px;margin-bottom:18px}
+.pdf-info-card{background:#f7f8fc;border:1px solid #e6e9f2;border-radius:8px;padding:14px 16px}
+.pdf-info-card h4{font-size:11px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.pdf-info-card h4 svg{width:14px;height:14px}
+.pdf-info-card .pdf-info-row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #d4d9e8;font-size:11px}
+.pdf-info-card .pdf-info-row:last-child{border-bottom:none}
+.pdf-info-card .pdf-info-row .k{color:#4a5578;font-weight:500}
+.pdf-info-card .pdf-info-row .v{color:#1a1f3a;font-weight:700;text-align:right}
+.pdf-info-card.alert{background:#fef3c7;border-color:#fcd34d}
+.pdf-info-card.alert h4{color:#92400e}
+.pdf-info-card.info-pr{background:#dcfce7;border-color:#86efac}
+.pdf-info-card.info-pr h4{color:#166534}
+
+/* Charts */
+.pdf-charts{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:8px}
+.pdf-chart-box{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;display:flex;flex-direction:column}
+.pdf-chart-box h4{font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:8px}
+.pdf-chart-box .chart-img-wrap{flex:1;min-height:240px;display:flex;align-items:center;justify-content:center}
+.pdf-chart-box .chart-img-wrap img{max-width:100%;max-height:300px;display:block}
+
+/* TABELAS */
+.pdf-table{width:100%;border-collapse:collapse;font-size:9.5px;background:#fff;border:1px solid #e6e9f2;border-radius:6px;overflow:hidden}
+.pdf-table thead th{background:linear-gradient(135deg,#4f46e5,#5b54e9);color:#fff;padding:7px 6px;text-align:left;font-weight:700;font-size:9px;text-transform:uppercase;letter-spacing:.04em;border-right:1px solid rgba(255,255,255,.1)}
+.pdf-table thead th:last-child{border-right:none}
+.pdf-table tbody td{padding:5px 6px;border-bottom:1px solid #eef0f7;vertical-align:top;color:#1a1f3a}
+.pdf-table tbody tr:nth-child(even) td{background:#fafbff}
+.pdf-table tbody tr.subtotal td{background:#eef2ff;font-weight:700;color:#3730a3;border-top:2px solid #4f46e5}
+.pdf-table tfoot td{background:#1e1b4b;color:#fff;padding:8px 6px;font-weight:800;font-size:10px}
+.pdf-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pdf-table .center{text-align:center}
+.pdf-table .total-col{color:#dc2626;font-weight:800}
+.pdf-table tfoot .total-col{color:#fef08a}
+.pdf-badge{display:inline-block;padding:2px 6px;border-radius:999px;font-size:8.5px;font-weight:700}
+.pdf-badge.b-caxias{background:#fef3c7;color:#92400e}
+.pdf-badge.b-sulacap{background:#dbeafe;color:#1e40af}
+.pdf-badge.b-curitiba{background:#dcfce7;color:#166534}
+.pdf-badge.b-tipo{background:#ecfeff;color:#0e7490}
+
+/* RESUMOS POR BASE / POR CLIENTE */
+.pdf-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.pdf-summary-card{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;}
+.pdf-summary-card h4{font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #eef2ff}
+
+.pdf-foot{position:absolute;bottom:14px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#6b7280;border-top:1px solid #e6e9f2;padding-top:6px}
+.pdf-foot strong{color:#1e1b4b}
+
+.pdf-explainer{background:#f0f4ff;border-left:4px solid #4f46e5;border-radius:6px;padding:12px 14px;font-size:10.5px;color:#1e1b4b;margin-bottom:14px;line-height:1.55}
+.pdf-explainer strong{color:#3730a3}
+
+@media (max-width:1200px){
+  .pdf-page{transform-origin:top center}
+}
 .progress-bar{height:100%;background:linear-gradient(90deg,var(--primary),var(--accent));width:0%;transition:width .3s}
 
 /* RESPONSIVE */
@@ -205,6 +410,11 @@ tbody tr.zebra{background:#fcfcff}
       </div>
     </div>
     <div class="topbar-actions">
+      <button class="theme-toggle" id="btnTheme" title="Alternar tema claro/escuro" aria-label="Alternar tema">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        <span id="btnThemeLabel">Escuro</span>
+      </button>
       <button class="btn" id="btnReload" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
         Recarregar
@@ -220,27 +430,52 @@ tbody tr.zebra{background:#fcfcff}
     </div>
   </div>
 
-  <!-- HERO -->
-  <div class="hero">
-    <div class="hero-inner">
-      <div>
-        <h2>Importe sua planilha, receba o custo de cada deslocamento.</h2>
-        <p>O sistema lê a aba <strong>Tarefas</strong>, identifica a unidade de saúde de cada chamado, estima a distância da base operacional vigente até o cliente e aplica as regras de cálculo de combustível, veículo e mão de obra rateada.</p>
-        <div class="hero-tags">
-          <span class="tag">📍 Base até Nov/2025: Duque de Caxias - RJ</span>
-          <span class="tag">📍 A partir de Dez/2025: Jardim Sulacap - RJ</span>
-          <span class="tag">⛽ R$ 5,50/L</span>
-          <span class="tag">🚗 70 km/h · 220h úteis/mês</span>
+  <!-- HERO (retrátil) -->
+  <div class="hero" id="heroPanel">
+    <div class="hero-bar">
+      <div class="hero-bar-left">
+        <span class="hero-bar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </span>
+        <div class="hero-bar-title">
+          <span class="ttl">Importação de planilha</span>
+          <span class="sub" id="heroBarSub">Importe sua planilha de tarefas para iniciar a análise.</span>
         </div>
       </div>
-      <label class="upload-card" id="uploadCard" for="fileInput">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <h3>Importar planilha Excel</h3>
-        <p>Arraste o arquivo .xlsx aqui ou clique para selecionar</p>
-        <span class="file-btn">Selecionar arquivo</span>
-        <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv" />
-        <div id="fileStatus"></div>
-      </label>
+      <div class="hero-bar-right">
+        <span class="hero-status-pill" id="heroStatusPill">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="heroStatusText">—</span>
+        </span>
+        <button type="button" class="hero-toggle" id="heroToggle" aria-expanded="true" aria-controls="heroBody">
+          <span id="heroToggleLabel">Recolher</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="hero-body" id="heroBody">
+      <div class="hero-body-inner">
+        <div class="hero-inner">
+          <div>
+            <h2>Importe sua planilha, receba o custo de cada deslocamento.</h2>
+            <p>O sistema lê a aba <strong>Tarefas</strong>, identifica a unidade de saúde de cada chamado (considerando <strong>nome e endereço</strong>), estima a distância da base operacional vigente até o local exato e aplica as regras de cálculo de combustível, veículo e mão de obra rateada.</p>
+            <div class="hero-tags">
+              <span class="tag">📍 RJ até Nov/2025: Duque de Caxias</span>
+              <span class="tag">📍 RJ a partir de Dez/2025: Jardim Sulacap</span>
+              <span class="tag">📍 PR (sempre): Curitiba · São Brás</span>
+              <span class="tag">⛽ R$ 5,50/L · 🚗 70 km/h · 220h/mês</span>
+            </div>
+          </div>
+          <label class="upload-card" id="uploadCard" for="fileInput">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <h3>Importar planilha Excel</h3>
+            <p>Arraste o arquivo .xlsx aqui ou clique para selecionar</p>
+            <span class="file-btn">Selecionar arquivo</span>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls,.csv" />
+            <div id="fileStatus"></div>
+          </label>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -261,6 +496,10 @@ tbody tr.zebra{background:#fcfcff}
     <div class="cfg">
       <label>👨‍🔧 Custo mensal do salário</label>
       <div class="row"><span class="suffix">R$</span><input type="number" id="cfgSalario" value="4500" step="50" min="0" /></div>
+    </div>
+    <div class="cfg">
+      <label>🏨 Custo médio de hospedagem <span style="font-weight:500;color:var(--muted)">(ida &gt; 300 km)</span></label>
+      <div class="row"><span class="suffix">R$</span><input type="number" id="cfgHospedagem" value="250" step="10" min="0" /></div>
     </div>
   </div>
 
@@ -347,9 +586,22 @@ tbody tr.zebra{background:#fcfcff}
           </div>
           <div class="chart-box">
             <h4>Top 8 clientes por custo</h4>
-            <div class="chart-wrap"><canvas id="chartCli"></canvas></div>
+            <div class="chart-wrap" style="height: 400px;"><canvas id="chartCli"></canvas></div>
           </div>
         </div>
+      </div>
+
+      <!-- DASHBOARD DE PERFORMANCE POR TÉCNICO -->
+      <div class="panel" id="techPanel" style="display:none">
+        <div class="panel-head">
+          <h3><span class="dot"></span> Performance por técnico</h3>
+          <span class="small-info" id="techInfo"></span>
+        </div>
+        <div class="chart-box" style="margin-bottom: 20px;">
+          <h4>Comparativo de Custo por Técnico</h4>
+          <div class="chart-wrap" style="height: 300px;"><canvas id="chartTech"></canvas></div>
+        </div>
+        <div class="table-wrap" id="techWrap"></div>
       </div>
 
       <!-- TABLE -->
@@ -373,6 +625,31 @@ tbody tr.zebra{background:#fcfcff}
 
 <div class="toast-wrap" id="toastWrap"></div>
 
+<!-- MODAL DE PRÉ-VISUALIZAÇÃO DO PDF -->
+<div class="pdf-modal" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdfModalTitle">
+  <div class="pdf-modal-wrap">
+    <div class="pdf-modal-head">
+      <h3 id="pdfModalTitle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Pré-visualização do Relatório
+      </h3>
+      <div class="pdf-actions">
+        <button class="btn" id="btnPdfClose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Fechar
+        </button>
+        <button class="btn btn-primary" id="btnPdfDownload">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Baixar PDF
+        </button>
+      </div>
+    </div>
+    <div class="pdf-modal-body" id="pdfModalBody">
+      <!-- páginas são injetadas via JS -->
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="overlay">
   <div class="overlay-card">
     <div class="spinner"></div>
@@ -389,10 +666,38 @@ tbody tr.zebra{background:#fcfcff}
 
 // ---------- BASE DE DISTÂNCIAS PRÉ-CALCULADAS ----------
 // Coordenadas das bases operacionais
+// Curitiba: Rua Antônio Escorsin, 2.833 – São Brás – Curitiba - PR
 const BASES = {
-  caxias: { name:"Duque de Caxias - RJ", lat:-22.7858, lon:-43.3122 },
-  sulacap:{ name:"Jardim Sulacap - RJ", lat:-22.8800, lon:-43.4150 }
+  caxias:   { name:"Duque de Caxias - RJ",            short:"Caxias",   lat:-22.7858, lon:-43.3122, state:"RJ",
+              address:"Avenida Leandro da Mota, 1.296 – Vila São Sebastião – Duque de Caxias/RJ" },
+  sulacap:  { name:"Jardim Sulacap - RJ",             short:"Sulacap",  lat:-22.8800, lon:-43.4150, state:"RJ",
+              address:"Avenida Albérico Diniz, 351 – Jardim Sulacap/RJ" },
+  curitiba: { name:"São Brás - Curitiba - PR",        short:"Curitiba", lat:-25.4280, lon:-49.3220, state:"PR",
+              address:"Rua Antônio Escorsin, 2.833 – São Brás – Curitiba/PR" },
+  campos:   { name:"Campos dos Goytacazes - RJ",      short:"Campos",   lat:-21.7622, lon:-41.3186, state:"RJ",
+              address:"Rua F nº 360, PRQ Aldeia – Campos dos Goytacazes/RJ" }
 };
+
+// Palavras-chave para casar o texto livre da coluna "Base" da planilha
+// com uma das bases operacionais cadastradas em BASES.
+const BASE_KEYWORDS = [
+  { key:"sulacap",  patterns:[/SULACAP/i, /ALBÉRICO\s+DINIZ/i, /ALBERICO\s+DINIZ/i] },
+  { key:"caxias",   patterns:[/DUQUE\s+DE\s+CAXIAS/i, /LEANDRO\s+DA\s+MOTA/i, /VILA\s+S[ÃA]O\s+SEBASTI[ÃA]O/i] },
+  { key:"curitiba", patterns:[/CURITIBA/i, /S[ÃA]O\s+BR[ÁA]Z/i, /S[ÃA]O\s+BR[ÁA]S/i, /ESCORSIN/i] },
+  { key:"campos",   patterns:[/CAMPOS\s+DOS?\s+GOYTACAZES/i, /GOYTACAZES/i, /PRQ\s+ALDEIA/i, /PARQUE\s+ALDEIA/i] }
+];
+
+// Resolve a base operacional a partir do valor bruto da coluna "Base"
+// (índice 7 da aba Tarefas). Retorna null se não conseguir identificar.
+function resolveBaseFromRaw(raw){
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  for (const entry of BASE_KEYWORDS){
+    if (entry.patterns.some(re => re.test(s))) return BASES[entry.key];
+  }
+  return null;
+}
 // Destino externo de referência (Curitiba)
 const DESTINO_REF = { name:"Curitiba - PR", lat:-25.4284, lon:-49.2733 };
 
@@ -580,7 +885,7 @@ const CLIENT_MAP = {
   "LABORATORIO EUFRASIA": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
   "LABORATORIO FERREIRA PASSINI - BARRA MANSA": { city:"Barra Mansa - RJ", lat:-22.5446, lon:-44.1719 },
   "LABORATORIO FERREIRA PASSINI - RESENDE": { city:"Resende - RJ", lat:-22.4685, lon:-44.4475 },
-  "LABORATORIO GERAL DR ALFREDO BERGER": { city:"Petrópolis - RJ", lat:-22.5050, lon:-43.1786 },
+  "LABORATORIO GERAL DR ALFREDO BERGER": { city:"Ponta Grossa - PR", lat:-25.0916, lon:-50.1668, state:"PR" },
   "LABORATÓRIO BIOEXAMES": { city:"Rio de Janeiro", lat:-22.9099, lon:-43.1818 },
   "LABORATÓRIO CDC - CABO FRIO": { city:"Cabo Frio - RJ", lat:-22.8889, lon:-42.0286 },
   "LABORATÓRIO DA CIDADE - CMD - BELFORD ROXO": { city:"Belford Roxo - RJ", lat:-22.7644, lon:-43.3990 },
@@ -669,7 +974,24 @@ const CITY_HINTS = [
   ["GRAJAÚ", { city:"Grajaú - RJ", lat:-22.9213, lon:-43.2638 }],
   ["GRAJAU", { city:"Grajaú - RJ", lat:-22.9213, lon:-43.2638 }],
   ["JACAREZINHO", { city:"Jacarezinho - PR", lat:-23.1604, lon:-49.9706 }],
-  ["BOM JARDIM", { city:"Bom Jardim - RJ", lat:-22.1554, lon:-42.4178 }]
+  ["BOM JARDIM", { city:"Bom Jardim - RJ", lat:-22.1554, lon:-42.4178 }],
+  ["BOM JESUS DO ITABAPOANA", { city:"Bom Jesus do Itabapoana - RJ", lat:-21.1300, lon:-41.6797 }],
+  ["ITABAPOANA", { city:"Bom Jesus do Itabapoana - RJ", lat:-21.1300, lon:-41.6797 }],
+  ["TRES RIOS", { city:"Três Rios - RJ", lat:-22.1167, lon:-43.2192 }],
+  ["TRÊS RIOS", { city:"Três Rios - RJ", lat:-22.1167, lon:-43.2192 }],
+  ["CORDEIRO", { city:"Cordeiro - RJ", lat:-22.0286, lon:-42.3614 }],
+  ["SÃO JOÃO DA BARRA", { city:"São João da Barra - RJ", lat:-21.6383, lon:-41.0511 }],
+  ["SAO JOAO DA BARRA", { city:"São João da Barra - RJ", lat:-21.6383, lon:-41.0511 }],
+  ["CARAPEBUS", { city:"Carapebus - RJ", lat:-22.1856, lon:-41.6633 }],
+  ["SÃO JOSÉ DOS PINHAIS", { city:"São José dos Pinhais - PR", lat:-25.5359, lon:-49.2069 }],
+  ["SAO JOSE DOS PINHAIS", { city:"São José dos Pinhais - PR", lat:-25.5359, lon:-49.2069 }],
+  ["CAMPO LARGO", { city:"Campo Largo - PR", lat:-25.4528, lon:-49.5266 }],
+  ["PONTA GROSSA", { city:"Ponta Grossa - PR", lat:-25.0916, lon:-50.1668 }],
+  ["MARINGÁ", { city:"Maringá - PR", lat:-23.4253, lon:-51.9386 }],
+  ["MARINGA", { city:"Maringá - PR", lat:-23.4253, lon:-51.9386 }],
+  ["LONDRINA", { city:"Londrina - PR", lat:-23.3045, lon:-51.1696 }],
+  ["CASCAVEL", { city:"Cascavel - PR", lat:-24.9555, lon:-53.4552 }],
+  ["LORENA", { city:"Lorena - SP", lat:-22.7350, lon:-45.1183 }]
 ];
 
 // ---------- STATE ----------
@@ -681,6 +1003,7 @@ const State = {
   sortDir: 1,
   chartMes: null,
   chartCli: null,
+  chartTech: null,
   fileName: null
 };
 
@@ -727,24 +1050,159 @@ function haversine(lat1, lon1, lat2, lon2){
   return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-// Resolver coordenadas da unidade
-function resolveLocation(clientName){
-  if (!clientName) return null;
-  const norm = clientName.trim();
-  if (CLIENT_MAP[norm]) return CLIENT_MAP[norm];
-  // tenta heurística
-  const upper = norm.toUpperCase();
-  for (const [kw, loc] of CITY_HINTS){
-    if (upper.includes(kw)) return loc;
-  }
-  // fallback: centro do RJ
-  return { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
+// Normalização leve para chave (remove acentos, espaços extras, caixa)
+function normalizeKey(s){
+  return (s||"")
+    .toString()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toUpperCase()
+    .replace(/\s+/g," ")
+    .trim();
 }
 
-// Determinar base operacional pelo ano/mês
-// Até Novembro de 2025: Duque de Caxias
-// A partir de Dezembro de 2025: Jardim Sulacap
-function getBase(year, month){
+// Resumo curto do endereço para exibição (preserva até ~70 chars)
+function shortAddress(addr, max){
+  const s = (addr||"").trim();
+  const lim = max || 70;
+  return s.length > lim ? s.slice(0, lim-1) + "…" : s;
+}
+
+// Extrai a UF (sigla de estado) a partir de um texto do tipo "Cidade - UF".
+function stateFromCity(city){
+  const m = normalizeKey(city).match(/\b(RJ|SP|PR|SC|MG|ES|DF|BA|RS)\b/);
+  return m ? m[1] : null;
+}
+
+// Resolver coordenadas da unidade considerando NOME (cliente) E ENDEREÇO.
+// O endereço (coluna G) refina a resolução quando disponível, permitindo
+// distinguir unidades homônimas que ficam em locais diferentes.
+function resolveLocation(clientName, address){
+  const cli = (clientName||"").trim();
+  const addr = (address||"").trim();
+  if (!cli && !addr) return null;
+
+  // 1) Localização base pelo nome do cliente (mapa manual)
+  let base = null;
+  if (cli && CLIENT_MAP[cli]) base = { ...CLIENT_MAP[cli] };
+
+  // 2) Heurística do nome (palavras-chave de cidade/bairro)
+  if (!base && cli){
+    const upper = normalizeKey(cli);
+    for (const [kw, loc] of CITY_HINTS){
+      if (upper.includes(normalizeKey(kw))) { base = { ...loc }; break; }
+    }
+  }
+
+  // 3) REFINAMENTO PELO ENDEREÇO
+  // Se o endereço for fornecido, tentamos extrair UF e cidade/bairro a partir
+  // dele. Quando o endereço aponta para um município/bairro reconhecível,
+  // suas coordenadas substituem (ou complementam) a inferida pelo nome.
+  let addrLoc = null;
+  if (addr){
+    const upperA = normalizeKey(addr);
+    // UF explícita: padrões "-RJ", " RJ,", "/RJ", "-PR", etc.
+    let ufFromAddr = null;
+    const ufMatch = upperA.match(/(?:[\s,\-\/])([A-Z]{2})(?:[\s,\-\.]|$)/g);
+    if (ufMatch){
+      // pega a última ocorrência válida (é onde costuma estar a UF)
+      const ufs = ufMatch.map(x => x.replace(/[^A-Z]/g,""));
+      const known = ["RJ","SP","PR","SC","MG","ES","DF","BA","RS"];
+      for (let i = ufs.length-1; i >= 0; i--){
+        if (known.includes(ufs[i])) { ufFromAddr = ufs[i]; break; }
+      }
+    }
+    // Tenta casar cidade/bairro via CITY_HINTS dentro do texto do endereço
+    for (const [kw, loc] of CITY_HINTS){
+      if (upperA.includes(normalizeKey(kw))){
+        addrLoc = { ...loc };
+        if (ufFromAddr) addrLoc.state = ufFromAddr;
+        break;
+      }
+    }
+    // Se só conseguimos a UF mas não a cidade, marcamos UF na base existente
+    if (!addrLoc && ufFromAddr){
+      addrLoc = { state: ufFromAddr };
+    }
+  }
+
+  // Combina os resultados (endereço tem prioridade sobre nome quando ambos coincidem na UF;
+  // se endereço aponta UF diferente, o endereço vence)
+  let finalLoc = null;
+  if (base && addrLoc){
+    if (addrLoc.lat != null){
+      // endereço trouxe cidade reconhecível → prevalece
+      finalLoc = { ...base, ...addrLoc };
+    } else if (addrLoc.state){
+      // endereço trouxe somente UF
+      // A UF do endereço é a fonte de verdade. Inferimos também a UF da base
+      // (pelo nome/cidade) para detectar conflitos mesmo quando base.state
+      // não está explícito — isso evita, p.ex., atribuir endereços do PR a
+      // cidades do RJ (como Petrópolis) só porque o NOME casou por engano.
+      const baseState = base.state || stateFromCity(base.city);
+      if (baseState && baseState !== addrLoc.state){
+        // Conflito de UF: endereço vence.
+        let fallback = null;
+        const upperA = normalizeKey(addr);
+        for (const [kw, loc] of CITY_HINTS){
+          if (upperA.includes(normalizeKey(kw))) { fallback = { ...loc, state: addrLoc.state }; break; }
+        }
+        // Sem cidade reconhecível no endereço, usamos a coordenada genérica da
+        // UF correta (nunca mantemos a coordenada da base de outra UF).
+        const ufFallbackConf = {
+          RJ:{ city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818 },
+          PR:{ city:"Curitiba - PR (estimado)", lat:-25.4284, lon:-49.2733 },
+          SP:{ city:"São Paulo - SP (estimado)", lat:-23.5505, lon:-46.6333 },
+          SC:{ city:"Florianópolis - SC (estimado)", lat:-27.5954, lon:-48.5480 }
+        }[addrLoc.state];
+        finalLoc = fallback || (ufFallbackConf
+          ? { ...ufFallbackConf, state: addrLoc.state, estimated:true }
+          : { ...base, state: addrLoc.state, estimated:true });
+      } else {
+        finalLoc = { ...base, state: addrLoc.state };
+      }
+    } else {
+      finalLoc = { ...base };
+    }
+  } else if (addrLoc && addrLoc.lat != null){
+    finalLoc = { ...addrLoc };
+  } else if (base){
+    finalLoc = { ...base };
+  } else if (addrLoc && addrLoc.state){
+    // só UF, sem coordenada → fallback genérico por UF
+    const ufFallback = {
+      RJ:{ city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818 },
+      PR:{ city:"Curitiba - PR (estimado)", lat:-25.4284, lon:-49.2733 },
+      SP:{ city:"São Paulo - SP (estimado)", lat:-23.5505, lon:-46.6333 },
+      SC:{ city:"Florianópolis - SC (estimado)", lat:-27.5954, lon:-48.5480 }
+    }[addrLoc.state];
+    finalLoc = ufFallback ? { ...ufFallback, state:addrLoc.state, estimated:true }
+                          : { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
+  }
+
+  if (!finalLoc){
+    finalLoc = { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
+  }
+  return finalLoc;
+}
+
+// Determinar base operacional pelo ano/mês e estado da unidade
+// - Unidades no Paraná (PR) saem sempre da base de Curitiba (São Brás)
+// - Demais (RJ e adjacências): até Nov/2025 Duque de Caxias, a partir de Dez/2025 Jardim Sulacap
+function inferState(loc){
+  if (!loc) return null;
+  if (loc.state) return loc.state;
+  const c = (loc.city||"").toUpperCase();
+  if (/\bPR\b|PARANÁ|PARANA/.test(c)) return "PR";
+  if (/\bSC\b/.test(c)) return "SC";
+  if (/\bSP\b/.test(c)) return "SP";
+  if (/\bRJ\b/.test(c) || /RIO DE JANEIRO|NITERÓI|NITEROI|DUQUE DE CAXIAS|NOVA IGUAÇU|BELFORD|SÃO GONÇALO|SAO GONCALO|PETRÓPOLIS|PETROPOLIS/.test(c)) return "RJ";
+  return null;
+}
+
+function getBase(year, month, loc){
+  // Se a unidade for no Paraná, base é sempre Curitiba
+  const st = inferState(loc);
+  if (st === "PR") return BASES.curitiba;
   if (year < 2025) return BASES.caxias;
   if (year === 2025 && month <= 11) return BASES.caxias;
   return BASES.sulacap;
@@ -841,7 +1299,9 @@ function processWorkbook(wb){
       tipo: String(r[2]||"").trim(),
       tarefaDe: String(r[3]||"").trim(),
       responsavel: String(r[4]||"").trim(),
-      cliente: String(r[5]||"").trim()
+      cliente: String(r[5]||"").trim(),
+      endereco: String(r[6]||"").trim(),
+      baseRaw: String(r[7]||"").trim()
     });
   }
 
@@ -859,8 +1319,12 @@ function processWorkbook(wb){
   $("btnExportCSV").disabled = false;
   $("btnExportPDF").disabled = false;
   $("chartsPanel").style.display = "block";
+  $("techPanel").style.display = "block";
   populateFilters();
   applyFilters();
+  // Recolhe o quadro de importação automaticamente e exibe status
+  showImportStatus(rows.length, State.fileName);
+  collapseHero(true);
 }
 
 // ---------- CALCULO ----------
@@ -869,37 +1333,96 @@ function computeCosts(){
   const consumo = parseFloat($("cfgConsumo").value) || 10;
   const veicCost = parseFloat($("cfgVeic").value) || 2300;
   const salCost = parseFloat($("cfgSalario").value) || 4500;
+  const hospCost = parseFloat($("cfgHospedagem").value) || 0;
   const HORAS_MES = 220;
+  const LIMIAR_HOSPEDAGEM_KM = 300; // km (só ida) a partir do qual se considera hospedagem
 
   const rows = State.raw.map(r => {
     const dt = parseDate(r.dataRaw);
     const ano = dt ? dt.year : null;
     const mes = dt ? dt.month : null;
-    const base = dt ? getBase(ano, mes) : BASES.caxias;
-    const loc = resolveLocation(r.cliente);
-    let distOneWay = 0, dist = 0, tempo = 0;
+    // Resolução de localização passa a considerar o NOME do cliente E o ENDEREÇO.
+    const loc = resolveLocation(r.cliente, r.endereco);
+    // Base operacional: prioriza o valor da coluna "Base" da planilha
+    // (índice 7 da aba Tarefas). Se ausente/desconhecida, cai no critério
+    // legado por estado da unidade e data (PR → Curitiba; RJ → Caxias/Sulacap).
+    const base = resolveBaseFromRaw(r.baseRaw) || getBase(ano || 2025, mes || 1, loc);
+    // Regra de negócio: atendimentos remotos (ex.: "ATENDIMENTO REMOTO
+    // TÉCNICO"/"ATENDIMENTO REMOTO CIENTÍFICO") não envolvem deslocamento
+    // físico até a unidade.
+    const isRemoto = /REMOTO/i.test(r.tipo || "");
+    // Regra de negócio: tarefas do tipo "MANUTENÇÃO DE EQUIPAMENTOS EM
+    // BANCADA" (o equipamento é trazido até a oficina/base do técnico) ou
+    // "ATENDIMENTO INTERNO" (assessoria realizada internamente) também
+    // acontecem fisicamente NA BASE do técnico — mesmo que o cliente
+    // cadastrado seja o hospital dono do equipamento. Nesses casos não há
+    // deslocamento real, então o serviço deve ser tratado como "na base".
+    const servicoNaBase = /BANCADA|ATENDIMENTO\s+INTERNO/i.test(r.tipo || "");
+    // Regra de negócio: o cliente "LABMEDIC" é a própria empresa/base — ou
+    // seja, QUALQUER tarefa registrada para esse cliente, em qualquer base
+    // (RJ ou PR) e qualquer tipo de tarefa, acontece internamente, sem
+    // deslocamento real até um cliente externo. Sem endereço cadastrado,
+    // esses registros vinham caindo num fallback genérico de coordenada
+    // (Rio de Janeiro), gerando custo indevido; agora são zerados de forma
+    // explícita e incondicional pelo nome do cliente.
+    const isClienteLabmedic = /LABMEDIC/i.test(r.cliente || "");
+    let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false;
     let cidade = "—";
     if (loc){
-      distOneWay = haversine(base.lat, base.lon, loc.lat, loc.lon);
-      // Aproximação rodoviária: + 25% sobre distância em linha reta
-      distOneWay = distOneWay * 1.25;
-      dist = distOneWay * 2; // ida e volta
-      tempo = dist / 70;
+      const distRetaBase = haversine(base.lat, base.lon, loc.lat, loc.lon);
+      // Quando a unidade atendida está no mesmo local da base operacional do
+      // técnico (endereço coincide com a própria base), não há deslocamento.
+      const RAIO_MESMA_BASE_KM = 2; // tolerância p/ imprecisão de geocodificação
+      mesmaBase = distRetaBase <= RAIO_MESMA_BASE_KM;
+      if (mesmaBase || isRemoto || servicoNaBase || isClienteLabmedic){
+        distOneWay = 0; dist = 0; tempo = 0;
+      } else {
+        // Aproximação rodoviária: + 25% sobre distância em linha reta
+        distOneWay = distRetaBase * 1.25;
+        dist = distOneWay * 2; // ida e volta
+        tempo = dist / 70;
+      }
       cidade = loc.city + (loc.estimated ? " *" : "");
     }
-    const fuel = (dist / consumo) * fuelPrice;
-    const veic = veicCost * (tempo / HORAS_MES);
-    const sal = salCost * (tempo / HORAS_MES);
-    const total = fuel + veic + sal;
+    // Regra de negócio: sempre que a assistência técnica for prestada na
+    // própria base do técnico (fisicamente, por distância, por bancada, por
+    // atendimento interno, ou por ser o cliente LABMEDIC), ou for um
+    // atendimento remoto, NÃO deve haver NENHUM custo (nem combustível, nem
+    // veículo, nem salário, nem hospedagem) — zerado de forma explícita, e
+    // não apenas como efeito colateral do tempo de deslocamento ser zero.
+    const semCusto = mesmaBase || isRemoto || servicoNaBase || isClienteLabmedic;
+    const fuel = semCusto ? 0 : (dist / consumo) * fuelPrice;
+    const veic = semCusto ? 0 : veicCost * (tempo / HORAS_MES);
+    const sal = semCusto ? 0 : salCost * (tempo / HORAS_MES);
+    // Regra de negócio: quando a distância só de IDA supera 300 km, inclui o
+    // custo médio de hospedagem informado nos parâmetros.
+    const hosp = semCusto ? 0 : ((distOneWay > LIMIAR_HOSPEDAGEM_KM) ? hospCost : 0);
+    const total = fuel + veic + sal + hosp;
+    // Chave de unidade combinada: NOME + ENDEREÇO normalizado.
+    // Permite distinguir unidades homônimas em locais diferentes nas agregações.
+    const enderecoKey = normalizeKey(r.endereco);
+    const clienteKey = normalizeKey(r.cliente);
+    const unidadeKey = enderecoKey ? (clienteKey + " || " + enderecoKey) : clienteKey;
+    // Rótulo amigável da unidade (cliente + município/endereço resumido)
+    const unidadeLabel = r.cliente + (r.endereco ? " — " + shortAddress(r.endereco, 50) : "");
     return {
       ...r,
-      ano, mes, base: base.name, baseShort: base === BASES.caxias ? "Caxias" : "Sulacap",
+      ano, mes, base: base.name, baseShort: base.short,
+      baseKey: base === BASES.curitiba ? "curitiba"
+             : base === BASES.sulacap  ? "sulacap"
+             : base === BASES.campos   ? "campos"
+             : "caxias",
       cidade,
+      unidadeKey,
+      unidadeLabel,
       distKm: dist,
       tempoH: tempo,
       custoFuel: fuel,
       custoVeic: veic,
       custoSal: sal,
+      custoHosp: hosp,
+      distOneWayKm: distOneWay,
+      hospedagem: hosp > 0,
       custoTotal: total,
       dataFormat: dt ? dt.raw : (r.dataRaw||"")
     };
@@ -941,7 +1464,7 @@ function applyFilters(){
 
   State.filtered = State.rows.filter(r => {
     if (q){
-      const blob = [r.codigo, r.cliente, r.tipo, r.responsavel, r.tarefaDe, r.cidade].join(" ").toLowerCase();
+      const blob = [r.codigo, r.cliente, r.endereco, r.tipo, r.responsavel, r.tarefaDe, r.cidade].join(" ").toLowerCase();
       if (!blob.includes(q)) return false;
     }
     if (fTipo && r.tipo !== fTipo) return false;
@@ -954,6 +1477,7 @@ function applyFilters(){
 
   if (State.sortKey) sortFiltered();
   updateKPIs();
+  renderTechDashboard();
   renderTable();
   renderCharts();
 }
@@ -989,6 +1513,7 @@ const COLS = [
   { key:"dataFormat", label:"Data", w:90 },
   { key:"tipo", label:"Tipo da tarefa", w:170 },
   { key:"cliente", label:"Cliente (Unidade)", w:260 },
+  { key:"endereco", label:"Endereço", w:280 },
   { key:"cidade", label:"Município/Local", w:170 },
   { key:"baseShort", label:"Base", w:80 },
   { key:"responsavel", label:"Técnico", w:140 },
@@ -997,6 +1522,7 @@ const COLS = [
   { key:"custoFuel", label:"Combustível", w:110, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoVeic", label:"Veículo (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoSal", label:"Salário (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
+  { key:"custoHosp", label:"Hospedagem", w:110, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoTotal", label:"Custo total", w:120, align:"right", fmt:fmtBRL, cls:"money money-total" }
 ];
 
@@ -1042,8 +1568,10 @@ function renderTable(){
       const align = c.align ? `text-align:${c.align}` : "";
       const cls = c.cls || "";
       if (c.key === "baseShort"){
-        const dec = r.baseShort === "Sulacap";
-        v = `<span class="badge bdg-period ${dec?'dec':''}">${v}</span>`;
+        let cls = "";
+        if (r.baseKey === "sulacap") cls = "dec";
+        else if (r.baseKey === "curitiba") cls = "pr";
+        v = `<span class="badge bdg-period ${cls}">${v}</span>`;
       }
       if (c.key === "tipo"){
         v = `<span class="badge bdg-type">${v}</span>`;
@@ -1055,8 +1583,8 @@ function renderTable(){
   // Totalizadores no rodapé
   const totals = State.filtered.reduce((a,r)=>{
     a.km += r.distKm; a.h += r.tempoH; a.f += r.custoFuel;
-    a.v += r.custoVeic; a.s += r.custoSal; a.t += r.custoTotal; return a;
-  }, {km:0,h:0,f:0,v:0,s:0,t:0});
+    a.v += r.custoVeic; a.s += r.custoSal; a.hp += r.custoHosp; a.t += r.custoTotal; return a;
+  }, {km:0,h:0,f:0,v:0,s:0,hp:0,t:0});
   html += `<tr style="background:#f4f6fc;font-weight:700">
     <td colspan="7" style="text-align:right">TOTAIS</td>
     <td style="text-align:right">${fmtKm(totals.km)}</td>
@@ -1064,6 +1592,7 @@ function renderTable(){
     <td style="text-align:right" class="money">${fmtBRL(totals.f)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.v)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.s)}</td>
+    <td style="text-align:right" class="money">${fmtBRL(totals.hp)}</td>
     <td style="text-align:right" class="money money-total">${fmtBRL(totals.t)}</td>
   </tr>`;
   html += "</tbody></table>";
@@ -1084,14 +1613,76 @@ function renderTable(){
   $("tableInfo").textContent = `${State.filtered.length.toLocaleString("pt-BR")} registros${State.filtered.length>MAX? ` (exibindo os primeiros ${MAX})`:""}`;
   $("footInfo").innerHTML = `
     <span>* Município marcado com asterisco indica estimativa heurística</span>
-    <span>Base operacional: <strong>Duque de Caxias</strong> até Nov/2025 · <strong>Jardim Sulacap</strong> a partir de Dez/2025</span>
+    <span>Base operacional definida pela coluna <strong>Base</strong> da planilha (Duque de Caxias, Jardim Sulacap, Campos dos Goytacazes ou São Brás/Curitiba).</span>
   `;
 }
 
+// ---------- DASHBOARD DE PERFORMANCE POR TÉCNICO ----------
+function renderTechDashboard(){
+  const rows = State.filtered;
+  const wrap = $("techWrap");
+  if (!rows.length){ wrap.innerHTML = '<div class="empty"><h3>Sem dados</h3><p>Ajuste os filtros para ver a performance dos técnicos.</p></div>'; $("techInfo").textContent = "0 técnicos"; return; }
+  const map = {};
+  rows.forEach(r => {
+    const key = r.responsavel || "— não informado";
+    if (!map[key]) map[key] = { count:0, km:0, h:0, total:0, tipos:{} };
+    const m = map[key];
+    m.count++; m.km += r.distKm; m.h += r.tempoH; m.total += r.custoTotal;
+    const tp = r.tipo || "—";
+    m.tipos[tp] = (m.tipos[tp]||0) + 1;
+  });
+  const list = Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
+  const g = list.reduce((a,[,v])=>{a.count+=v.count;a.km+=v.km;a.h+=v.h;a.total+=v.total;return a;},{count:0,km:0,h:0,total:0});
+  let html = `<table><thead><tr>
+    <th style="min-width:180px">Técnico</th>
+    <th style="text-align:right">Tarefas</th>
+    <th style="text-align:right">Distância</th>
+    <th style="text-align:right">Horas</th>
+    <th style="text-align:right">Custo total</th>
+    <th style="text-align:right">Custo médio</th>
+    <th style="min-width:240px">Atividades realizadas</th>
+  </tr></thead><tbody>`;
+  list.forEach(([name,v],i) => {
+    const tipos = Object.entries(v.tipos).sort((a,b)=>b[1]-a[1]).slice(0,5)
+      .map(([t,c]) => `<span class="badge bdg-type" title="${t}">${(t.length>20?t.slice(0,20)+"…":t)} · ${c}</span>`).join(" ");
+    html += `<tr class="${i%2?'zebra':''}">
+      <td><strong>${name}</strong></td>
+      <td style="text-align:right">${v.count.toLocaleString("pt-BR")}</td>
+      <td style="text-align:right">${fmtKm(v.km)}</td>
+      <td style="text-align:right">${v.h.toFixed(1)} h</td>
+      <td style="text-align:right" class="money money-total">${fmtBRL(v.total)}</td>
+      <td style="text-align:right" class="money">${fmtBRL(v.count ? v.total/v.count : 0)}</td>
+      <td><div style="display:flex;flex-wrap:wrap;gap:4px">${tipos}</div></td>
+    </tr>`;
+  });
+  html += `<tr style="background:#f4f6fc;font-weight:700">
+    <td style="text-align:right">TOTAIS · ${list.length} técnico(s)</td>
+    <td style="text-align:right">${g.count.toLocaleString("pt-BR")}</td>
+    <td style="text-align:right">${fmtKm(g.km)}</td>
+    <td style="text-align:right">${g.h.toFixed(1)} h</td>
+    <td style="text-align:right" class="money money-total">${fmtBRL(g.total)}</td>
+    <td style="text-align:right" class="money">${fmtBRL(g.count ? g.total/g.count : 0)}</td>
+    <td></td>
+  </tr>`;
+  html += "</tbody></table>";
+  wrap.innerHTML = html;
+  $("techInfo").textContent = `${list.length} técnico(s) · ${g.count.toLocaleString("pt-BR")} tarefa(s)`;
+}
+
 // ---------- CHARTS ----------
+function getChartTheme(){
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
+  return {
+    dark,
+    grid: dark ? "rgba(255,255,255,.08)" : "#eef0f7",
+    tick: dark ? "#cbd5f5" : "#4a5578"
+  };
+}
+
 function renderCharts(){
   const rows = State.filtered;
   $("chartsInfo").textContent = rows.length.toLocaleString("pt-BR") + " registros considerados";
+  const th = getChartTheme();
 
   // Mensal
   const mesMap = {};
@@ -1107,15 +1698,16 @@ function renderCharts(){
     return MES_NAMES[+m] + "/" + y.slice(2);
   });
 
-  // Cliente top 8
+  // Top 8 unidades (cliente + endereço)
   const cliMap = {};
   rows.forEach(r => {
-    if (!r.cliente) return;
-    cliMap[r.cliente] = (cliMap[r.cliente]||0) + r.custoTotal;
+    if (!r.unidadeKey) return;
+    if (!cliMap[r.unidadeKey]) cliMap[r.unidadeKey] = { total:0, label:r.unidadeLabel || r.cliente };
+    cliMap[r.unidadeKey].total += r.custoTotal;
   });
-  const cliSorted = Object.entries(cliMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const cliLabels = cliSorted.map(c => c[0].length>34 ? c[0].slice(0,34)+"…" : c[0]);
-  const cliData = cliSorted.map(c => c[1]);
+  const cliSorted = Object.entries(cliMap).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+  const cliLabels = cliSorted.map(c => c[1].label.length>40 ? c[1].label.slice(0,40)+"…" : c[1].label);
+  const cliData = cliSorted.map(c => c[1].total);
 
   const colorBars = ["#4f46e5","#7c3aed","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#0ea5e9"];
 
@@ -1144,8 +1736,8 @@ function renderCharts(){
         tooltip:{callbacks:{label: ctx => fmtBRL(ctx.parsed.y)}}
       },
       scales:{
-        y:{ticks:{callback: v => fmtBRLshort(v), font:{size:11}}, grid:{color:"#eef0f7"}},
-        x:{ticks:{font:{size:11}}, grid:{display:false}}
+        y:{ticks:{callback: v => fmtBRLshort(v), font:{size:11}, color:th.tick}, grid:{color:th.grid}},
+        x:{ticks:{font:{size:11}, color:th.tick}, grid:{display:false}}
       }
     }
   });
@@ -1170,8 +1762,88 @@ function renderCharts(){
         tooltip:{callbacks:{label: ctx => fmtBRL(ctx.parsed.x)}}
       },
       scales:{
-        x:{ticks:{callback: v => fmtBRLshort(v), font:{size:10}}, grid:{color:"#eef0f7"}},
-        y:{ticks:{font:{size:10.5}}, grid:{display:false}}
+        x:{ticks:{callback: v => fmtBRLshort(v), font:{size:10}, color:th.tick}, grid:{color:th.grid}},
+        y:{ticks:{font:{size:10.5}, color:th.tick}, grid:{display:false}}
+      }
+    }
+  });
+
+  // Performance por Técnico
+  const techMap = {};
+  rows.forEach(r => {
+    const key = r.responsavel || "Não informado";
+    if (!techMap[key]) techMap[key] = { total: 0, count: 0 };
+    techMap[key].total += r.custoTotal;
+    techMap[key].count += 1;
+  });
+  const techSorted = Object.entries(techMap).sort((a,b)=>b[1].total-a[1].total);
+  const techLabels = techSorted.map(t => t[0]);
+  const techCostData = techSorted.map(t => t[1].total);
+  const techCountData = techSorted.map(t => t[1].count);
+
+  if (State.chartTech) State.chartTech.destroy();
+  State.chartTech = new Chart($("chartTech"), {
+    type: "bar",
+    data: {
+      labels: techLabels,
+      datasets: [
+        {
+          label: "Custo Total (R$)",
+          data: techCostData,
+          backgroundColor: "#4f46e5",
+          borderRadius: [8, 8, 0, 0],
+          maxBarThickness: 35,
+          yAxisID: "y",
+          order: 2
+        },
+        {
+          label: "Volume de Diligências",
+          data: techCountData,
+          backgroundColor: "#06b6d4",
+          borderRadius: [8, 8, 0, 0],
+          maxBarThickness: 35,
+          yAxisID: "y1",
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{
+          display:true,
+          position:"top",
+          labels:{font:{size:12}, color:th.tick, padding:12}
+        },
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              if (ctx.dataset.yAxisID === "y") {
+                return ctx.dataset.label + ": " + fmtBRL(ctx.parsed.y);
+              } else {
+                return ctx.dataset.label + ": " + ctx.parsed.y + " tarefa(s)";
+              }
+            }
+          }
+        }
+      },
+      scales:{
+        y:{
+          type:"linear",
+          position:"left",
+          ticks:{callback: v => fmtBRLshort(v), font:{size:11}, color:th.tick},
+          grid:{color:th.grid},
+          title:{display:true, text:"Custo Total (R$)", font:{size:11, weight:"bold"}, color:th.tick}
+        },
+        y1:{
+          type:"linear",
+          position:"right",
+          ticks:{callback: v => v.toLocaleString("pt-BR"), font:{size:11}, color:th.tick},
+          grid:{display:false},
+          title:{display:true, text:"Volume de Diligências", font:{size:11, weight:"bold"}, color:th.tick}
+        },
+        x:{ticks:{font:{size:11}, color:th.tick}, grid:{display:false}}
       }
     }
   });
@@ -1180,11 +1852,11 @@ function renderCharts(){
 // ---------- EXPORT ----------
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  const headers = ["Código","Data","Tipo","Cliente","Município","Base","Tarefa De","Responsável","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Custo Total (R$)"];
+  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)"];
   const rows = State.filtered.map(r => [
-    r.codigo, r.dataFormat, r.tipo, r.cliente, r.cidade, r.base, r.tarefaDe, r.responsavel,
+    r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel,
     r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
-    r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoTotal.toFixed(2)
+    r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2)
   ]);
   const csvLine = arr => arr.map(v => {
     const s = String(v??"");
@@ -1201,152 +1873,745 @@ function exportCSV(){
   toast("CSV exportado.","success");
 }
 
-function exportPDF(){
-  if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  showOverlay("Gerando PDF...", "Renderizando relatório profissional");
-  setTimeout(() => {
-    try {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
-      const pageW = doc.internal.pageSize.getWidth();
-      const pageH = doc.internal.pageSize.getHeight();
+// ==========================================================================
+// RELATÓRIO PDF - ESTRUTURA INDEPENDENTE DO DASHBOARD
+//
+// Estratégia:
+//   1. openPdfPreview() monta um DOM independente (.pdf-page) com cabeçalho,
+//      KPIs, parâmetros, análises e tabela paginada com quebras inteligentes
+//      (cada página A4 landscape tem altura controlada para evitar overflow).
+//   2. O usuário visualiza no modal e pode rolar todas as páginas.
+//   3. Quando clica em "Baixar PDF", html2canvas converte cada .pdf-page em
+//      bitmap e jsPDF junta tudo em um único PDF A4 landscape multi-páginas.
+// ==========================================================================
 
-      // HEADER
-      doc.setFillColor(79,70,229);
-      doc.rect(0,0,pageW,22,"F");
-      doc.setFillColor(124,58,237);
-      doc.rect(pageW*0.6,0,pageW*0.4,22,"F");
-      doc.setTextColor(255,255,255);
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(15);
-      doc.text("DILIGÊNCIAS TÉCNICAS · Relatório de Custos de Deslocamento", 12, 14);
-      doc.setFontSize(9);
-      doc.setFont("helvetica","normal");
-      const now = new Date().toLocaleString("pt-BR");
-      doc.text("Emitido em: " + now, pageW-12, 14, { align:"right" });
+const PDF_ROWS_FIRST = 16;   // 1ª página de tabela (vem após KPIs+gráficos)
+const PDF_ROWS_PER_PAGE = 28; // páginas seguintes (só tabela)
 
-      // KPI cards
-      const rows = State.filtered;
-      const totals = rows.reduce((a,r)=>{a.km+=r.distKm;a.h+=r.tempoH;a.f+=r.custoFuel;a.v+=r.custoVeic;a.s+=r.custoSal;a.t+=r.custoTotal;return a},{km:0,h:0,f:0,v:0,s:0,t:0});
+function collectReportData(){
+  const rows = State.filtered;
+  const totals = rows.reduce((a,r)=>{a.km+=r.distKm;a.h+=r.tempoH;a.f+=r.custoFuel;a.v+=r.custoVeic;a.s+=r.custoSal;a.hp+=r.custoHosp;a.t+=r.custoTotal;return a},{km:0,h:0,f:0,v:0,s:0,hp:0,t:0});
+  // Por base
+  const byBase = {};
+  rows.forEach(r => {
+    const k = r.baseShort || "-";
+    if (!byBase[k]) byBase[k] = { count:0, km:0, h:0, total:0, key:r.baseKey };
+    byBase[k].count++;
+    byBase[k].km += r.distKm;
+    byBase[k].h += r.tempoH;
+    byBase[k].total += r.custoTotal;
+  });
+  // Por estado (RJ / PR / outros)
+  const byUF = { RJ:{count:0,total:0,km:0}, PR:{count:0,total:0,km:0}, Outros:{count:0,total:0,km:0} };
+  rows.forEach(r => {
+    let uf = "Outros";
+    if (r.baseKey === "curitiba") uf = "PR";
+    else if (r.baseKey === "caxias" || r.baseKey === "sulacap") uf = "RJ";
+    byUF[uf].count++; byUF[uf].total += r.custoTotal; byUF[uf].km += r.distKm;
+  });
+  // Top unidades (chave = cliente + endereço)
+  const byClient = {};
+  rows.forEach(r => {
+    if (!r.unidadeKey) return;
+    if (!byClient[r.unidadeKey]) byClient[r.unidadeKey] = { count:0, total:0, km:0, label:r.unidadeLabel || r.cliente, cliente:r.cliente, endereco:r.endereco||"" };
+    byClient[r.unidadeKey].count++;
+    byClient[r.unidadeKey].total += r.custoTotal;
+    byClient[r.unidadeKey].km += r.distKm;
+  });
+  const topClients = Object.entries(byClient).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
+  // Por mês
+  const byMonth = {};
+  rows.forEach(r => {
+    if (!r.ano || !r.mes) return;
+    const k = `${r.ano}-${String(r.mes).padStart(2,"0")}`;
+    if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0 };
+    byMonth[k].count++;
+    byMonth[k].total += r.custoTotal;
+    byMonth[k].km += r.distKm;
+  });
+  return { rows, totals, byBase, byUF, topClients, byMonth };
+}
 
-      const kpis = [
-        { label:"Tarefas",      value: rows.length.toLocaleString("pt-BR"),  color:[79,70,229] },
-        { label:"Distância",    value: fmtKm(totals.km),                     color:[6,182,212] },
-        { label:"Horas viagem", value: totals.h.toFixed(1)+" h",            color:[245,158,11] },
-        { label:"Combustível",  value: fmtBRL(totals.f),                    color:[16,185,129] },
-        { label:"Veículo",      value: fmtBRL(totals.v),                    color:[139,92,246] },
-        { label:"Salário",      value: fmtBRL(totals.s),                    color:[14,165,233] },
-        { label:"CUSTO TOTAL",  value: fmtBRL(totals.t),                    color:[239,68,68] }
-      ];
-      const cardW = (pageW - 24 - 6*4) / 7;
-      const cardH = 18;
-      let cx = 12, cy = 28;
-      kpis.forEach(k => {
-        doc.setFillColor(...k.color);
-        doc.roundedRect(cx, cy, cardW, cardH, 2, 2, "F");
-        doc.setTextColor(255,255,255);
-        doc.setFontSize(7);
-        doc.setFont("helvetica","bold");
-        doc.text(k.label.toUpperCase(), cx+2.5, cy+5);
-        doc.setFontSize(k.label==="CUSTO TOTAL"?10:9.5);
-        doc.text(k.value, cx+2.5, cy+13);
-        cx += cardW + 4;
-      });
+function getFiltersDescription(){
+  const f = [];
+  if ($("fltSearch").value) f.push(["Busca", $("fltSearch").value]);
+  if ($("fltTipo").value)   f.push(["Tipo", $("fltTipo").value]);
+  if ($("fltCliente").value)f.push(["Cliente", $("fltCliente").value]);
+  if ($("fltAno").value)    f.push(["Ano", $("fltAno").value]);
+  if ($("fltMes").value)    f.push(["Mês", MES_FULL[+$("fltMes").value]]);
+  if ($("fltResp").value)   f.push(["Técnico", $("fltResp").value]);
+  return f;
+}
 
-      // Filtros aplicados
-      cy += cardH + 5;
-      doc.setTextColor(70,70,90);
-      doc.setFont("helvetica","bold"); doc.setFontSize(8);
-      const filtros = [];
-      if ($("fltTipo").value) filtros.push("Tipo: "+$("fltTipo").value);
-      if ($("fltCliente").value) filtros.push("Cliente: "+$("fltCliente").value);
-      if ($("fltAno").value) filtros.push("Ano: "+$("fltAno").value);
-      if ($("fltMes").value) filtros.push("Mês: "+MES_FULL[+$("fltMes").value]);
-      if ($("fltResp").value) filtros.push("Técnico: "+$("fltResp").value);
-      if ($("fltSearch").value) filtros.push("Busca: "+$("fltSearch").value);
-      doc.text("Filtros: " + (filtros.length? filtros.join(" · ") : "Nenhum (todos os registros)"), 12, cy);
-      cy += 5;
+function pdfBadgeForBase(key, short){
+  const cls = key === "sulacap" ? "b-sulacap" : (key === "curitiba" ? "b-curitiba" : "b-caxias");
+  return `<span class="pdf-badge ${cls}">${short}</span>`;
+}
 
-      // Tabela
-      const headers = [["Código","Data","Tipo","Cliente","Município","Base","Técnico","Km","Tempo","Combust.","Veículo","Salário","Total"]];
-      const body = rows.map(r => [
-        r.codigo, r.dataFormat,
-        (r.tipo||"").substring(0,22),
-        (r.cliente||"").substring(0,38),
-        (r.cidade||"").substring(0,22),
-        r.baseShort,
-        (r.responsavel||"").substring(0,18),
-        r.distKm.toFixed(1),
-        r.tempoH.toFixed(2)+"h",
-        fmtBRL(r.custoFuel),
-        fmtBRL(r.custoVeic),
-        fmtBRL(r.custoSal),
-        fmtBRL(r.custoTotal)
-      ]);
-      const footRow = [{ content:"TOTAIS", colSpan:7, styles:{halign:"right", fontStyle:"bold"} },
-        fmtKm(totals.km),
-        totals.h.toFixed(1)+"h",
-        fmtBRL(totals.f),
-        fmtBRL(totals.v),
-        fmtBRL(totals.s),
-        fmtBRL(totals.t)
-      ];
+function pdfHeader(pageNum, totalPages){
+  const now = new Date().toLocaleString("pt-BR");
+  return `
+    <div class="pdf-header">
+      <div>
+        <h1>DILIGÊNCIAS TÉCNICAS</h1>
+        <div class="pdf-h-sub">Relatório de Custos de Deslocamento · Assistência Técnica</div>
+      </div>
+      <div class="pdf-h-meta">
+        <div>Emitido em <strong>${now}</strong></div>
+        <div>Página ${pageNum} de ${totalPages}</div>
+      </div>
+    </div>`;
+}
 
-      doc.autoTable({
-        head: headers,
-        body: body,
-        foot: [footRow],
-        startY: cy,
-        margin: { left:12, right:12 },
-        styles: { fontSize:6.6, cellPadding:1.4, lineColor:[230,233,242], lineWidth:0.1, textColor:[40,40,55] },
-        headStyles: { fillColor:[79,70,229], textColor:[255,255,255], fontStyle:"bold", fontSize:7, halign:"center" },
-        footStyles: { fillColor:[239,242,255], textColor:[40,40,55], fontStyle:"bold", fontSize:7 },
-        columnStyles: {
-          0:{cellWidth:16,halign:"center"},
-          1:{cellWidth:17,halign:"center"},
-          2:{cellWidth:30},
-          3:{cellWidth:54},
-          4:{cellWidth:30},
-          5:{cellWidth:14,halign:"center"},
-          6:{cellWidth:26},
-          7:{cellWidth:15,halign:"right"},
-          8:{cellWidth:14,halign:"right"},
-          9:{cellWidth:20,halign:"right"},
-          10:{cellWidth:21,halign:"right"},
-          11:{cellWidth:21,halign:"right"},
-          12:{cellWidth:23,halign:"right",fontStyle:"bold",textColor:[185,28,28]}
-        },
-        alternateRowStyles: { fillColor:[251,252,255] },
-        didDrawPage: data => {
-          // Rodapé
-          const ph = doc.internal.pageSize.getHeight();
-          const pw = doc.internal.pageSize.getWidth();
-          doc.setDrawColor(220,222,235);
-          doc.line(12, ph-10, pw-12, ph-10);
-          doc.setFontSize(7);
-          doc.setTextColor(140,140,160);
-          doc.setFont("helvetica","normal");
-          doc.text("Diligências Técnicas · Painel de Custos · Página " + data.pageNumber, 12, ph-5);
-          doc.text("Parâmetros: " + $("cfgFuelPrice").value+" R$/L · "+$("cfgConsumo").value+" km/L · Veículo R$ "+$("cfgVeic").value+"/mês · Salário R$ "+$("cfgSalario").value+"/mês · 220h úteis/mês", pw-12, ph-5, { align:"right" });
+function pdfFooter(){
+  const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h`;
+  return `
+    <div class="pdf-foot">
+      <span><strong>Diligências Técnicas</strong> · Painel de Custos de Deslocamento</span>
+      <span>${params}</span>
+    </div>`;
+}
+
+/* ----- CONSTRUÇÃO DAS PÁGINAS ----- */
+function buildCoverPage(data, totalPages){
+  const f = getFiltersDescription();
+  const filtrosTxt = f.length ? f.map(([k,v])=>`${k}: ${v}`).join(" · ") : "Todos os registros";
+  const period = (() => {
+    if (!data.rows.length) return "—";
+    const dts = data.rows.filter(r=>r.ano && r.mes).map(r=>r.ano*100+r.mes).sort();
+    if (!dts.length) return "—";
+    const a = dts[0], b = dts[dts.length-1];
+    return `${MES_FULL[a%100]}/${Math.floor(a/100)} – ${MES_FULL[b%100]}/${Math.floor(b/100)}`;
+  })();
+  return `
+    <div class="pdf-page" data-page-info="1 de ${totalPages}">
+      <div class="pdf-cover">
+        <div class="cv-logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <h1>Diligências Técnicas</h1>
+        <h2>Relatório de Custos de Deslocamento</h2>
+        <div class="cv-divider"></div>
+        <div class="cv-meta">
+          <div class="cv-meta-card"><div class="lbl">Período Analítico</div><div class="val">${period}</div></div>
+          <div class="cv-meta-card"><div class="lbl">Tarefas Analisadas</div><div class="val">${data.rows.length.toLocaleString("pt-BR")} registros</div></div>
+          <div class="cv-meta-card"><div class="lbl">Custo Total Apurado</div><div class="val">${fmtBRL(data.totals.t)}</div></div>
+          <div class="cv-meta-card"><div class="lbl">Filtros Aplicados</div><div class="val" style="font-size:11px;font-weight:500;line-height:1.5">${filtrosTxt}</div></div>
+        </div>
+        <div class="cv-foot">Emitido em ${new Date().toLocaleString("pt-BR")} · Fonte: planilha “Tarefas” · Documento ${totalPages} páginas</div>
+      </div>
+    </div>`;
+}
+
+function buildSummaryPage(data, pageNum, totalPages){
+  const t = data.totals;
+  const n = data.rows.length;
+  const avgKm = n ? t.km/n : 0;
+  const avgH  = n ? t.h/n  : 0;
+  const avgC  = n ? t.t/n  : 0;
+
+  const kpisHtml = `
+    <div class="pdf-kpis">
+      <div class="pdf-kpi k1"><div><div class="lbl">Tarefas</div><div class="val">${n.toLocaleString("pt-BR")}</div></div><div class="sub">Registros considerados</div></div>
+      <div class="pdf-kpi k2"><div><div class="lbl">Distância total</div><div class="val">${fmtKm(t.km)}</div></div><div class="sub">Média ${avgKm.toFixed(1)} km/tarefa</div></div>
+      <div class="pdf-kpi k3"><div><div class="lbl">Horas em desloc.</div><div class="val">${t.h.toFixed(1)} h</div></div><div class="sub">Média ${avgH.toFixed(2)} h/tarefa</div></div>
+      <div class="pdf-kpi k4"><div><div class="lbl">Combustível</div><div class="val">${fmtBRL(t.f)}</div></div><div class="sub">${((t.f/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
+      <div class="pdf-kpi k5"><div><div class="lbl">Veículo (rateio)</div><div class="val">${fmtBRL(t.v)}</div></div><div class="sub">${((t.v/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
+      <div class="pdf-kpi k6"><div><div class="lbl">Salário (rateio)</div><div class="val">${fmtBRL(t.s)}</div></div><div class="sub">${((t.s/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
+      <div class="pdf-kpi k3"><div><div class="lbl">Hospedagem</div><div class="val">${fmtBRL(t.hp)}</div></div><div class="sub">${((t.hp/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
+      <div class="pdf-kpi k7"><div><div class="lbl">Custo Total Apurado</div><div class="val" style="font-size:22px">${fmtBRL(t.t)}</div></div><div class="sub">Média ${fmtBRL(avgC)} por tarefa</div></div>
+    </div>`;
+
+  const filters = getFiltersDescription();
+  const filtersRows = filters.length
+    ? filters.map(([k,v])=>`<div class="pdf-info-row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join("")
+    : `<div class="pdf-info-row"><span class="k">Sem filtros aplicados</span><span class="v">Todos os registros</span></div>`;
+
+  const ufPR = data.byUF.PR, ufRJ = data.byUF.RJ, ufOut = data.byUF.Outros;
+
+  const infoHtml = `
+    <div class="pdf-info-grid">
+      <div class="pdf-info-card">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Parâmetros de Cálculo</h4>
+        <div class="pdf-info-row"><span class="k">Preço do combustível</span><span class="v">R$ ${parseFloat($("cfgFuelPrice").value).toFixed(2)} / L</span></div>
+        <div class="pdf-info-row"><span class="k">Consumo médio</span><span class="v">${$("cfgConsumo").value} km/L</span></div>
+        <div class="pdf-info-row"><span class="k">Custo mensal do veículo</span><span class="v">${fmtBRL(parseFloat($("cfgVeic").value))}</span></div>
+        <div class="pdf-info-row"><span class="k">Custo mensal do salário</span><span class="v">${fmtBRL(parseFloat($("cfgSalario").value))}</span></div>
+        <div class="pdf-info-row"><span class="k">Hospedagem (ida &gt; 300 km)</span><span class="v">${fmtBRL(parseFloat($("cfgHospedagem").value)||0)}</span></div>
+        <div class="pdf-info-row"><span class="k">Velocidade média / Jornada</span><span class="v">70 km/h · 220 h/mês</span></div>
+        <div class="pdf-info-row"><span class="k">Acréscimo rodoviário s/ haversine</span><span class="v">+25%</span></div>
+      </div>
+      <div class="pdf-info-card info-pr">
+        <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Bases Operacionais</h4>
+        <div class="pdf-info-row"><span class="k">RJ — até Nov/2025</span><span class="v">Duque de Caxias – RJ</span></div>
+        <div class="pdf-info-row"><span class="k">RJ — a partir de Dez/2025</span><span class="v">Jardim Sulacap – RJ</span></div>
+        <div class="pdf-info-row"><span class="k">PR — sempre</span><span class="v">R. Antônio Escorsin, 2.833<br>São Brás – Curitiba/PR</span></div>
+        <div class="pdf-info-row"><span class="k">Filtros aplicados</span><span class="v" style="font-size:10px">${filters.length ? filters.length+" ativos" : "Nenhum"}</span></div>
+      </div>
+    </div>`;
+
+  // EXPLAINER PR (só mostra se há tarefas no PR)
+  const explainer = (ufPR.count > 0) ? `
+    <div class="pdf-explainer">
+      <strong>Regra especial Paraná:</strong> ${ufPR.count} tarefa(s) em unidades do PR foram calculadas a partir da base de Curitiba
+      (São Brás), totalizando ${fmtKm(ufPR.km)} e ${fmtBRL(ufPR.total)}. As demais ${ufRJ.count} tarefas no RJ utilizam Caxias/Sulacap conforme o período.
+    </div>` : "";
+
+  return `
+    <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
+      <div class="pdf-page-inner">
+        ${pdfHeader(pageNum, totalPages)}
+        <h3 class="pdf-section-title">Sumário Executivo</h3>
+        ${kpisHtml}
+        ${explainer}
+        ${infoHtml}
+        ${pdfFooter()}
+      </div>
+    </div>`;
+}
+
+// Página dedicada à análise visual (gráficos) — separada do sumário para
+// evitar que o conteúdo ultrapasse a página A4 e os gráficos sejam cortados.
+function buildChartsPage(data, pageNum, totalPages, chartImages){
+  const chartsHtml = `
+    <div class="pdf-charts">
+      <div class="pdf-chart-box">
+        <h4>Custo total por mês</h4>
+        <div class="chart-img-wrap">${chartImages.mes ? `<img src="${chartImages.mes}" alt="Custo por mês"/>` : "<em>Sem dados</em>"}</div>
+      </div>
+      <div class="pdf-chart-box">
+        <h4>Top clientes por custo</h4>
+        <div class="chart-img-wrap">${chartImages.cli ? `<img src="${chartImages.cli}" alt="Top clientes"/>` : "<em>Sem dados</em>"}</div>
+      </div>
+    </div>`;
+  return `
+    <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
+      <div class="pdf-page-inner">
+        ${pdfHeader(pageNum, totalPages)}
+        <h3 class="pdf-section-title">Análise Visual</h3>
+        ${chartsHtml}
+        ${pdfFooter()}
+      </div>
+    </div>`;
+}
+
+// Páginas com a listagem REAL dos registros (apenas na prévia em tela).
+// Antes, esta página só mostrava um texto avisando que a tabela "seria
+// incluída" — o usuário via uma página em branco sem nenhum dado. Agora ela
+// renderiza os registros de fato, paginados em blocos, com as mesmas colunas
+// que vão para o PDF final. Mantém a classe "notice-page" para continuar
+// sendo excluída do caminho de exportação por imagem (o download gera a
+// tabela em vetor separadamente, via autoTable/fallback, para performance
+// e texto selecionável em datasets grandes).
+function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
+  rowsPerPage = rowsPerPage || 24;
+  const rows = data.rows;
+  const t = data.totals;
+  const chunks = [];
+  for (let i = 0; i < rows.length; i += rowsPerPage) chunks.push(rows.slice(i, i + rowsPerPage));
+  if (!chunks.length) chunks.push([]);
+
+  return chunks.map((chunk, idx) => {
+    const pageNum = pageNumStart + idx;
+    const isLast = idx === chunks.length - 1;
+    const bodyRows = chunk.map(r => `
+      <tr>
+        <td>${r.codigo || ""}</td>
+        <td>${r.dataFormat || ""}</td>
+        <td>${(r.tipo || "").substring(0,26)}</td>
+        <td>${(r.cliente || "").substring(0,42)}</td>
+        <td>${r.cidade || ""}</td>
+        <td>${r.baseShort || ""}</td>
+        <td>${(r.responsavel || "").substring(0,20)}</td>
+        <td class="num">${r.distKm.toFixed(0)} km</td>
+        <td class="num">${r.tempoH.toFixed(1)}h</td>
+        <td class="num">${fmtBRL(r.custoFuel)}</td>
+        <td class="num">${fmtBRL(r.custoVeic)}</td>
+        <td class="num">${fmtBRL(r.custoSal)}</td>
+        <td class="num">${fmtBRL(r.custoHosp)}</td>
+        <td class="num total-col">${fmtBRL(r.custoTotal)}</td>
+      </tr>`).join("");
+    const footRow = isLast ? `
+      <tfoot><tr>
+        <td colspan="7">TOTAIS GERAIS · ${rows.length.toLocaleString("pt-BR")} registro(s)</td>
+        <td class="num">${fmtKm(t.km)}</td>
+        <td class="num">${t.h.toFixed(0)}h</td>
+        <td class="num">${fmtBRL(t.f)}</td>
+        <td class="num">${fmtBRL(t.v)}</td>
+        <td class="num">${fmtBRL(t.s)}</td>
+        <td class="num">${fmtBRL(t.hp)}</td>
+        <td class="num total-col">${fmtBRL(t.t)}</td>
+      </tr></tfoot>` : "";
+    return `
+    <div class="pdf-page notice-page" data-page-info="tabela · ${pageNum} de ${totalPages}">
+      <div class="pdf-page-inner">
+        ${pdfHeader(pageNum, totalPages)}
+        <h3 class="pdf-section-title">Registros Detalhados — Tarefas ${chunks.length > 1 ? `(bloco ${idx+1} de ${chunks.length})` : ""}</h3>
+        <table class="pdf-table">
+          <thead><tr>
+            <th>Cód.</th><th>Data</th><th>Tipo</th><th>Cliente / Unidade</th><th>Município</th>
+            <th>Base</th><th>Técnico</th><th style="text-align:right">Km</th><th style="text-align:right">Tempo</th>
+            <th style="text-align:right">Combust.</th><th style="text-align:right">Veículo</th>
+            <th style="text-align:right">Salário</th><th style="text-align:right">Hosped.</th><th style="text-align:right">Total</th>
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+          ${footRow}
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function buildBreakdownPage(data, pageNum, totalPages){
+  const t = data.totals;
+  // Por base
+  const baseRows = Object.entries(data.byBase).sort((a,b)=>b[1].total-a[1].total).map(([k,v]) => `
+    <tr>
+      <td>${pdfBadgeForBase(v.key,k)}</td>
+      <td class="num">${v.count}</td>
+      <td class="num">${fmtKm(v.km)}</td>
+      <td class="num">${v.h.toFixed(1)} h</td>
+      <td class="num total-col">${fmtBRL(v.total)}</td>
+      <td class="num">${((v.total/(t.t||1))*100).toFixed(1)}%</td>
+    </tr>`).join("");
+
+  // Top unidades (cliente + endereço)
+  const cliRows = data.topClients.map(([key,v],i) => {
+    const lbl = v.label || v.cliente || key;
+    return `
+    <tr>
+      <td class="center">${i+1}</td>
+      <td>${(lbl||"").length>72 ? lbl.slice(0,72)+"…" : lbl}</td>
+      <td class="num">${v.count}</td>
+      <td class="num">${fmtKm(v.km)}</td>
+      <td class="num total-col">${fmtBRL(v.total)}</td>
+    </tr>`;
+  }).join("");
+
+  // Por mês
+  const mesEntries = Object.entries(data.byMonth).sort((a,b)=>a[0].localeCompare(b[0]));
+  const mesRows = mesEntries.map(([k,v]) => {
+    const [y,m] = k.split("-");
+    return `
+      <tr>
+        <td class="center">${MES_FULL[+m]}/${y}</td>
+        <td class="num">${v.count}</td>
+        <td class="num">${fmtKm(v.km)}</td>
+        <td class="num total-col">${fmtBRL(v.total)}</td>
+      </tr>`;
+  }).join("");
+
+  return `
+    <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
+      <div class="pdf-page-inner">
+        ${pdfHeader(pageNum, totalPages)}
+        <h3 class="pdf-section-title">Análises Consolidadas</h3>
+        <div class="pdf-summary-grid">
+          <div class="pdf-summary-card">
+            <h4>Distribuição por Base Operacional</h4>
+            <table class="pdf-table">
+              <thead><tr><th>Base</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Horas</th><th class="num">Custo Total</th><th class="num">%</th></tr></thead>
+              <tbody>${baseRows}</tbody>
+              <tfoot><tr><td>TOTAIS</td><td class="num">${data.rows.length}</td><td class="num">${fmtKm(t.km)}</td><td class="num">${t.h.toFixed(1)} h</td><td class="num total-col">${fmtBRL(t.t)}</td><td class="num">100%</td></tr></tfoot>
+            </table>
+          </div>
+          <div class="pdf-summary-card">
+            <h4>Distribuição Mensal</h4>
+            <table class="pdf-table">
+              <thead><tr><th class="center">Mês/Ano</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Custo Total</th></tr></thead>
+              <tbody>${mesRows || '<tr><td colspan="4" style="text-align:center;color:#888">Sem dados mensais</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <h3 class="pdf-section-title" style="margin-top:6px">Top 10 Clientes por Custo Total</h3>
+        <table class="pdf-table">
+          <thead><tr><th class="center" style="width:36px">#</th><th>Cliente / Unidade</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Custo Total</th></tr></thead>
+          <tbody>${cliRows || '<tr><td colspan="5" style="text-align:center;color:#888">Sem dados</td></tr>'}</tbody>
+        </table>
+        ${pdfFooter()}
+      </div>
+    </div>`;
+}
+
+function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTable){
+  const t = data.totals;
+  const bodyHtml = slice.map(r => {
+    const cliCell = `${(r.cliente||"").substring(0,52)}${r.endereco ? `<div style="font-size:9px;color:#6b7390;margin-top:2px;line-height:1.25">${shortAddress(r.endereco, 70)}</div>` : ""}`;
+    return `
+    <tr>
+      <td class="center">${r.codigo||""}</td>
+      <td class="center">${r.dataFormat||""}</td>
+      <td><span class="pdf-badge b-tipo">${(r.tipo||"").substring(0,28)}</span></td>
+      <td>${cliCell}</td>
+      <td>${(r.cidade||"")}</td>
+      <td class="center">${pdfBadgeForBase(r.baseKey, r.baseShort)}</td>
+      <td>${(r.responsavel||"").substring(0,22)}</td>
+      <td class="num">${r.distKm.toFixed(1)}</td>
+      <td class="num">${r.tempoH.toFixed(2)}h</td>
+      <td class="num">${fmtBRL(r.custoFuel)}</td>
+      <td class="num">${fmtBRL(r.custoVeic)}</td>
+      <td class="num">${fmtBRL(r.custoSal)}</td>
+      <td class="num total-col">${fmtBRL(r.custoTotal)}</td>
+    </tr>`;
+  }).join("");
+
+  const footHtml = isLastTable ? `
+    <tfoot>
+      <tr>
+        <td colspan="7" style="text-align:right">TOTAIS GERAIS →</td>
+        <td class="num">${fmtKm(t.km)}</td>
+        <td class="num">${t.h.toFixed(1)}h</td>
+        <td class="num">${fmtBRL(t.f)}</td>
+        <td class="num">${fmtBRL(t.v)}</td>
+        <td class="num">${fmtBRL(t.s)}</td>
+        <td class="num total-col">${fmtBRL(t.t)}</td>
+      </tr>
+    </tfoot>` : "";
+
+  const title = isFirstTable ? "Registros Detalhados — Tarefas" : "Registros Detalhados (continuação)";
+
+  return `
+    <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
+      <div class="pdf-page-inner">
+        ${pdfHeader(pageNum, totalPages)}
+        <h3 class="pdf-section-title">${title}</h3>
+        <table class="pdf-table">
+          <thead>
+            <tr>
+              <th class="center" style="width:50px">Cód.</th>
+              <th class="center" style="width:64px">Data</th>
+              <th style="width:115px">Tipo</th>
+              <th>Cliente / Unidade</th>
+              <th style="width:120px">Município</th>
+              <th class="center" style="width:64px">Base</th>
+              <th style="width:95px">Técnico</th>
+              <th class="num" style="width:46px">Km</th>
+              <th class="num" style="width:50px">Tempo</th>
+              <th class="num" style="width:70px">Combust.</th>
+              <th class="num" style="width:70px">Veículo</th>
+              <th class="num" style="width:70px">Salário</th>
+              <th class="num" style="width:80px">Total</th>
+            </tr>
+          </thead>
+          <tbody>${bodyHtml}</tbody>
+          ${footHtml}
+        </table>
+        ${pdfFooter()}
+      </div>
+    </div>`;
+}
+
+/* Renderiza chart em canvas oculto e retorna dataURL (alta resolução, fundo branco) */
+function renderChartToImage(type, data){
+  return new Promise((resolve) => {
+    const w = 900, h = 460;
+    const canvas = document.createElement("canvas");
+    canvas.width = w; canvas.height = h;
+    canvas.style.cssText = "position:absolute;left:-9999px;top:-9999px";
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0,0,w,h);
+
+    const colorBars = ["#4f46e5","#7c3aed","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#0ea5e9"];
+    const cfg = (type === "bar") ? {
+      type:"bar",
+      data:{
+        labels:data.labels,
+        datasets:[{
+          label:"Custo Total (R$)",
+          data:data.values,
+          backgroundColor: ctx2 => {
+            const c = ctx2.chart.ctx.createLinearGradient(0,0,0,h);
+            c.addColorStop(0,"#7c3aed"); c.addColorStop(1,"#4f46e5");
+            return c;
+          },
+          borderRadius:8,
+          maxBarThickness:60
+        }]
+      },
+      options:{
+        responsive:false, animation:false, devicePixelRatio:2,
+        plugins:{legend:{display:false}, tooltip:{enabled:false}},
+        scales:{
+          y:{ticks:{callback:v=>fmtBRLshort(v),font:{size:13},color:"#4a5578"},grid:{color:"#eef0f7"}},
+          x:{ticks:{font:{size:13},color:"#4a5578"},grid:{display:false}}
         }
-      });
+      }
+    } : {
+      type:"bar",
+      data:{
+        labels:data.labels,
+        datasets:[{
+          data:data.values,
+          backgroundColor:data.labels.map((_,i)=>colorBars[i%colorBars.length]),
+          borderRadius:6
+        }]
+      },
+      options:{
+        indexAxis:"y", responsive:false, animation:false, devicePixelRatio:2,
+        plugins:{legend:{display:false}, tooltip:{enabled:false}},
+        scales:{
+          x:{ticks:{callback:v=>fmtBRLshort(v),font:{size:12},color:"#4a5578"},grid:{color:"#eef0f7"}},
+          y:{ticks:{font:{size:11},color:"#4a5578"},grid:{display:false}}
+        }
+      }
+    };
 
-      doc.save("diligencias_relatorio.pdf");
-      hideOverlay();
-      toast("PDF gerado com sucesso.","success");
-    } catch (err){
-      hideOverlay();
-      console.error(err);
-      toast("Erro ao gerar PDF: " + err.message, "error", 6000);
+    const chart = new Chart(ctx, cfg);
+    requestAnimationFrame(() => {
+      const url = canvas.toDataURL("image/png");
+      chart.destroy();
+      canvas.remove();
+      resolve(url);
+    });
+  });
+}
+
+async function buildChartImages(data){
+  const result = { mes:null, cli:null };
+  // Mensal
+  const mesEntries = Object.entries(data.byMonth).sort((a,b)=>a[0].localeCompare(b[0]));
+  if (mesEntries.length){
+    result.mes = await renderChartToImage("bar", {
+      labels: mesEntries.map(([k]) => { const [y,m]=k.split("-"); return MES_NAMES[+m]+"/"+y.slice(2); }),
+      values: mesEntries.map(([,v]) => v.total)
+    });
+  }
+  // Top clientes
+  if (data.topClients.length){
+    result.cli = await renderChartToImage("hbar", {
+      labels: data.topClients.slice(0,8).map(([,v]) => { const l = v.label || v.cliente || ""; return l.length>40?l.slice(0,40)+"…":l; }),
+      values: data.topClients.slice(0,8).map(([,v]) => v.total)
+    });
+  }
+  return result;
+}
+
+/* ----- ABRIR PRÉ-VISUALIZAÇÃO ----- */
+async function openPdfPreview(){
+  if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
+  showOverlay("Renderizando relatório...", "Compondo páginas, gráficos e tabelas");
+  try {
+    const data = collectReportData();
+    State.reportData = data; // usado no download (tabela via autoTable)
+    const chartImages = await buildChartImages(data);
+
+    // A tabela detalhada real é renderizada em blocos de linhas na própria
+    // prévia (para o usuário conferir os dados antes de baixar) e depois,
+    // no download, é regerada em vetor via autoTable/fallback para
+    // performance com datasets grandes.
+    const totalRows = data.rows.length;
+    const ROWS_PER_PAGE_PREVIEW = 26;
+    const estTablePages = Math.max(1, Math.ceil(totalRows / ROWS_PER_PAGE_PREVIEW));
+    // Estrutura: capa + sumário + análise visual + análises + tabela.
+    const totalPages = 4 + estTablePages;
+
+    let pageNum = 0;
+    const html = [];
+    pageNum++; html.push(buildCoverPage(data, totalPages));
+    pageNum++; html.push(buildSummaryPage(data, pageNum, totalPages));
+    pageNum++; html.push(buildChartsPage(data, pageNum, totalPages, chartImages));
+    pageNum++; html.push(buildBreakdownPage(data, pageNum, totalPages));
+    html.push(buildTableDataPages(data, pageNum + 1, totalPages, ROWS_PER_PAGE_PREVIEW));
+
+    $("pdfModalBody").innerHTML = html.join("");
+    $("pdfModal").classList.add("show");
+    document.body.style.overflow = "hidden";
+    hideOverlay();
+    toast("Relatório pronto para visualização. Clique em “Baixar PDF” quando estiver satisfeito.", "info", 4500);
+  } catch (err){
+    hideOverlay();
+    console.error(err);
+    toast("Erro ao renderizar pré-visualização: "+err.message, "error", 6000);
+  }
+}
+
+function closePdfPreview(){
+  $("pdfModal").classList.remove("show");
+  $("pdfModalBody").innerHTML = "";
+  document.body.style.overflow = "";
+}
+
+/* ----- BAIXAR PDF a partir da pré-visualização ----- */
+async function downloadPdfFromPreview(){
+  // Páginas visuais (capa, sumário, análise visual, análises) — a página de
+  // aviso da tabela (.notice-page) é apenas da prévia e não vai no PDF.
+  const pages = $("pdfModalBody").querySelectorAll(".pdf-page:not(.notice-page)");
+  if (!pages.length){ toast("Nenhuma página renderizada.","warn"); return; }
+  if (!State.reportData){ toast("Dados do relatório indisponíveis. Reabra a pré-visualização.","warn"); return; }
+  showOverlay("Gerando PDF final...", "Preparando documento");
+  $("overlayProgressWrap").style.display = "block";
+  $("overlayProgressBar").style.width = "0%";
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+
+    // 1) Páginas visuais convertidas em imagem (poucas páginas → seguro).
+    for (let i = 0; i < pages.length; i++){
+      const el = pages[i];
+      const canvas = await html2canvas(el, {
+        scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+        windowWidth: el.scrollWidth, windowHeight: el.scrollHeight
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const imgRatio = canvas.width / canvas.height;
+      const pageRatio = pageW / pageH;
+      let w, h;
+      if (imgRatio > pageRatio){ w = pageW; h = pageW / imgRatio; }
+      else { h = pageH; w = pageH * imgRatio; }
+      const x = (pageW - w)/2, y = (pageH - h)/2;
+      if (i > 0) pdf.addPage("a4","landscape");
+      pdf.addImage(imgData, "JPEG", x, y, w, h, undefined, "FAST");
+      $("overlayProgressBar").style.width = ((i+1)/(pages.length+1)*100)+"%";
+      $("overlayText").textContent = `Compondo página ${i+1} de ${pages.length}`;
     }
-  }, 80);
+
+    // 2) Tabela detalhada em vetor (texto selecionável), paginada
+    //    automaticamente pelo autoTable — suporta milhares de linhas sem
+    //    estourar memória (que causava o erro "(undefined)" no download).
+    //    Isolada em seu próprio try/catch: se o plugin autoTable falhar por
+    //    qualquer motivo, cai num renderizador manual (fallback) para que a
+    //    lista de registros NUNCA seja omitida do PDF final.
+    $("overlayText").textContent = "Gerando tabela detalhada...";
+    const data = State.reportData; const t = data.totals;
+    const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Km","Tempo","Combust.","Veículo","Salário","Hosped.","Total"];
+    const body = data.rows.map(r => [
+      r.codigo || "", r.dataFormat || "", (r.tipo || "").substring(0,22),
+      (r.cliente || "").substring(0,42), (r.cidade || ""), r.baseShort || "",
+      (r.responsavel || "").substring(0,18),
+      r.distKm.toFixed(0), r.tempoH.toFixed(1) + "h",
+      fmtBRL(r.custoFuel), fmtBRL(r.custoVeic), fmtBRL(r.custoSal), fmtBRL(r.custoHosp), fmtBRL(r.custoTotal)
+    ]);
+    const footRow = ["TOTAIS GERAIS","","","","","","", fmtKm(t.km), t.h.toFixed(0)+"h", fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
+
+    pdf.addPage("a4","landscape");
+    let tableRenderedOk = false;
+    if (typeof pdf.autoTable === "function"){
+      try {
+        pdf.autoTable({
+          head: [head],
+          body,
+          foot: [footRow],
+          startY: 18,
+          margin: { top: 16, left: 8, right: 8, bottom: 12 },
+          styles: { fontSize: 6.2, cellPadding: 1.3, overflow: "ellipsize", lineColor: [230,233,242], lineWidth: 0.1 },
+          headStyles: { fillColor: [79,70,229], textColor: 255, fontSize: 6.2, halign: "left" },
+          footStyles: { fillColor: [30,27,75], textColor: 255, fontStyle: "bold", fontSize: 5.8 },
+          alternateRowStyles: { fillColor: [250,251,255] },
+          columnStyles: {
+            3:{cellWidth:38},
+            7:{halign:"right",cellWidth:11}, 8:{halign:"right",cellWidth:12},
+            9:{halign:"right",cellWidth:18}, 10:{halign:"right",cellWidth:18},
+            11:{halign:"right",cellWidth:18}, 12:{halign:"right",cellWidth:16},
+            13:{halign:"right",cellWidth:19,textColor:[220,38,38],fontStyle:"bold"}
+          },
+          didDrawPage: () => {
+            pdf.setFontSize(11); pdf.setTextColor(30,27,75);
+            pdf.text("Registros Detalhados — Tarefas", 8, 12);
+            pdf.setFontSize(8); pdf.setTextColor(120,120,130);
+            pdf.text("Diligências Técnicas · Painel de Custos de Deslocamento", 8, pageH - 6);
+            pdf.text("Página " + pdf.internal.getNumberOfPages(), pageW - 8, pageH - 6, { align: "right" });
+          }
+        });
+        tableRenderedOk = true;
+      } catch (tableErr){
+        console.error("autoTable falhou, acionando fallback manual:", tableErr);
+      }
+    }
+
+    // FALLBACK: se o plugin autoTable não estiver disponível ou falhar,
+    // desenha a tabela manualmente linha a linha com pdf.text(), paginando
+    // a cada N linhas. Mais simples visualmente, mas garante que a lista
+    // completa de registros sempre apareça no PDF baixado.
+    if (!tableRenderedOk){
+      const colX = [8, 26, 46, 66, 116, 146, 166, 190, 202, 216, 234, 252, 270, 286];
+      const rowH = 4.2, linesPerPage = Math.floor((pageH - 30) / rowH);
+      let cursorRow = 0;
+      const drawHeaderRow = (y) => {
+        pdf.setFontSize(7); pdf.setFont(undefined,"bold"); pdf.setTextColor(255,255,255);
+        pdf.setFillColor(79,70,229); pdf.rect(8, y-3.2, pageW-16, rowH, "F");
+        head.forEach((h,ci) => pdf.text(String(h), colX[ci]||8, y));
+        pdf.setFont(undefined,"normal"); pdf.setTextColor(20,20,30);
+      };
+      let y = 18;
+      pdf.setFontSize(11); pdf.setTextColor(30,27,75);
+      pdf.text("Registros Detalhados — Tarefas", 8, 12);
+      drawHeaderRow(y); y += rowH;
+      body.forEach((row, idx) => {
+        if (cursorRow > 0 && cursorRow % linesPerPage === 0){
+          pdf.addPage("a4","landscape");
+          y = 18;
+          pdf.setFontSize(11); pdf.setTextColor(30,27,75);
+          pdf.text("Registros Detalhados — Tarefas (cont.)", 8, 12);
+          drawHeaderRow(y); y += rowH;
+        }
+        pdf.setFontSize(6.2);
+        row.forEach((cell,ci) => pdf.text(String(cell), colX[ci]||8, y));
+        y += rowH;
+        cursorRow++;
+      });
+      pdf.setFontSize(6.5); pdf.setFont(undefined,"bold");
+      pdf.text(footRow.filter(Boolean).join("   "), 8, y+2);
+      pdf.setFont(undefined,"normal");
+      tableRenderedOk = true;
+    }
+
+    $("overlayProgressBar").style.width = "100%";
+    pdf.save("diligencias_relatorio.pdf");
+    hideOverlay();
+    toast("PDF exportado com sucesso (" + pdf.internal.getNumberOfPages() + " páginas" + (tableRenderedOk ? "" : ", tabela indisponível") + ").","success");
+  } catch (err){
+    hideOverlay();
+    console.error(err);
+    const msg = (err && (err.message || err.toString())) || "erro desconhecido";
+    toast("Erro ao gerar PDF: " + msg, "error", 6000);
+  }
+}
+
+// ---------- HERO (quadro de importação retrátil) ----------
+function collapseHero(collapse){
+  const hero = $("heroPanel");
+  const btn = $("heroToggle");
+  const lbl = $("heroToggleLabel");
+  if (!hero) return;
+  if (collapse){
+    hero.classList.add("collapsed");
+    if (btn) btn.setAttribute("aria-expanded","false");
+    if (lbl) lbl.textContent = "Expandir";
+  } else {
+    hero.classList.remove("collapsed");
+    if (btn) btn.setAttribute("aria-expanded","true");
+    if (lbl) lbl.textContent = "Recolher";
+  }
+}
+function toggleHero(){
+  const hero = $("heroPanel");
+  collapseHero(!hero.classList.contains("collapsed"));
+}
+function showImportStatus(count, fileName){
+  const pill = $("heroStatusPill");
+  const txt = $("heroStatusText");
+  const sub = $("heroBarSub");
+  if (txt) txt.textContent = `${count.toLocaleString("pt-BR")} registros · ${fileName || "planilha"}`;
+  if (pill) pill.classList.add("show");
+  if (sub) sub.textContent = `Importado: ${fileName || "planilha"} — clique em “Expandir” para reimportar.`;
 }
 
 // ---------- EVENT BINDINGS ----------
 function bindEvents(){
-  $("btnReload").addEventListener("click", () => $("fileInput").click());
+  $("btnReload").addEventListener("click", () => { collapseHero(false); $("fileInput").click(); });
+  if ($("heroToggle")) $("heroToggle").addEventListener("click", toggleHero);
   $("btnExportCSV").addEventListener("click", exportCSV);
-  $("btnExportPDF").addEventListener("click", exportPDF);
+  $("btnExportPDF").addEventListener("click", openPdfPreview);
+  $("btnPdfClose").addEventListener("click", closePdfPreview);
+  $("btnPdfDownload").addEventListener("click", downloadPdfFromPreview);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && $("pdfModal").classList.contains("show")) closePdfPreview();
+  });
+  $("btnTheme").addEventListener("click", toggleTheme);
   $("btnClearFilters").addEventListener("click", () => {
     ["fltSearch","fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => $(id).value = "");
     applyFilters();
@@ -1355,7 +2620,7 @@ function bindEvents(){
     $(id).addEventListener("input", applyFilters);
     $(id).addEventListener("change", applyFilters);
   });
-  ["cfgFuelPrice","cfgConsumo","cfgVeic","cfgSalario"].forEach(id => {
+  ["cfgFuelPrice","cfgConsumo","cfgVeic","cfgSalario","cfgHospedagem"].forEach(id => {
     $(id).addEventListener("change", () => {
       if (State.raw.length){
         computeCosts();
@@ -1366,10 +2631,34 @@ function bindEvents(){
   });
 }
 
+// ---------- TEMA ----------
+function applyTheme(theme){
+  document.documentElement.setAttribute("data-theme", theme);
+  try { localStorage.setItem("diligencias.theme", theme); } catch(_){}
+  $("btnThemeLabel").textContent = theme === "dark" ? "Claro" : "Escuro";
+  // Re-renderiza gráficos para aplicar nova paleta
+  if (State.rows.length) renderCharts();
+}
+function toggleTheme(){
+  const cur = document.documentElement.getAttribute("data-theme") || "light";
+  applyTheme(cur === "dark" ? "light" : "dark");
+}
+function initTheme(){
+  let saved = null;
+  try { saved = localStorage.getItem("diligencias.theme"); } catch(_){}
+  if (!saved){
+    saved = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  applyTheme(saved);
+}
+
 // ---------- INIT ----------
+initTheme();
 setupUpload();
 bindEvents();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
