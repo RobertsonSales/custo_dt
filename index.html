@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Diligências Técnicas · Painel de Custos de Deslocamento</title>
+<title>GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
@@ -405,8 +405,8 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
       <div class="brand-text">
-        <h1>Diligências Técnicas</h1>
-        <p>Painel inteligente de custos de deslocamento · Assistência técnica</p>
+        <h1>GRUPO LABMEDIC - Diligências Técnicas</h1>
+        <p>Avaliação de custos em deslocamento · Assistência técnica</p>
       </div>
     </div>
     <div class="topbar-actions">
@@ -665,26 +665,27 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
    ========================================================================== */
 
 // ---------- BASE DE DISTÂNCIAS PRÉ-CALCULADAS ----------
-// Coordenadas das bases operacionais
-// Curitiba: Rua Antônio Escorsin, 2.833 – São Brás – Curitiba - PR
+// Coordenadas das bases operacionais.
+// Importante: estes pontos representam o ENDEREÇO da coluna "Base" da
+// planilha, não a cidade-base genérica nem a cidade do técnico.
 const BASES = {
-  caxias:   { name:"Duque de Caxias - RJ",            short:"Caxias",   lat:-22.7858, lon:-43.3122, state:"RJ",
+  caxias:   { key:"caxias", name:"Duque de Caxias - RJ",            short:"Caxias",   lat:-22.7757, lon:-43.2864, state:"RJ",
               address:"Avenida Leandro da Mota, 1.296 – Vila São Sebastião – Duque de Caxias/RJ" },
-  sulacap:  { name:"Jardim Sulacap - RJ",             short:"Sulacap",  lat:-22.8800, lon:-43.4150, state:"RJ",
+  sulacap:  { key:"sulacap", name:"Jardim Sulacap - RJ",             short:"Sulacap",  lat:-22.8859, lon:-43.3965, state:"RJ",
               address:"Avenida Albérico Diniz, 351 – Jardim Sulacap/RJ" },
-  curitiba: { name:"São Brás - Curitiba - PR",        short:"Curitiba", lat:-25.4280, lon:-49.3220, state:"PR",
+  curitiba: { key:"curitiba", name:"São Brás - Curitiba - PR",        short:"Curitiba", lat:-25.4189, lon:-49.3564, state:"PR",
               address:"Rua Antônio Escorsin, 2.833 – São Brás – Curitiba/PR" },
-  campos:   { name:"Campos dos Goytacazes - RJ",      short:"Campos",   lat:-21.7622, lon:-41.3186, state:"RJ",
+  campos:   { key:"campos", name:"Campos dos Goytacazes - RJ",      short:"Campos",   lat:-21.7277, lon:-41.3443, state:"RJ",
               address:"Rua F nº 360, PRQ Aldeia – Campos dos Goytacazes/RJ" }
 };
 
 // Palavras-chave para casar o texto livre da coluna "Base" da planilha
 // com uma das bases operacionais cadastradas em BASES.
 const BASE_KEYWORDS = [
-  { key:"sulacap",  patterns:[/SULACAP/i, /ALBÉRICO\s+DINIZ/i, /ALBERICO\s+DINIZ/i] },
-  { key:"caxias",   patterns:[/DUQUE\s+DE\s+CAXIAS/i, /LEANDRO\s+DA\s+MOTA/i, /VILA\s+S[ÃA]O\s+SEBASTI[ÃA]O/i] },
+  { key:"sulacap",  patterns:[/\bSULACAP\b/i, /ALBÉRICO\s+DINIZ/i, /ALBERICO\s+DINIZ/i] },
+  { key:"caxias",   patterns:[/\bCAXIAS\b/i, /DUQUE\s+DE\s+CAXIAS/i, /LEANDRO\s+DA\s+MOTA/i, /VILA\s+S[ÃA]O\s+SEBASTI[ÃA]O/i] },
   { key:"curitiba", patterns:[/CURITIBA/i, /S[ÃA]O\s+BR[ÁA]Z/i, /S[ÃA]O\s+BR[ÁA]S/i, /ESCORSIN/i] },
-  { key:"campos",   patterns:[/CAMPOS\s+DOS?\s+GOYTACAZES/i, /GOYTACAZES/i, /PRQ\s+ALDEIA/i, /PARQUE\s+ALDEIA/i] }
+  { key:"campos",   patterns:[/^\s*CAMPOS\s*$/i, /CAMPOS\s+DOS?\s+GOYTACAZES/i, /GOYTACAZES/i, /PRQ\s+ALDEIA/i, /PARQUE\s+ALDEIA/i] }
 ];
 
 // Resolve a base operacional a partir do valor bruto da coluna "Base"
@@ -696,7 +697,30 @@ function resolveBaseFromRaw(raw){
   for (const entry of BASE_KEYWORDS){
     if (entry.patterns.some(re => re.test(s))) return BASES[entry.key];
   }
+  const loc = resolveBaseAddressFromRaw(s);
+  if (loc) return loc;
   return null;
+}
+
+// Fallback para bases futuras informadas como endereço livre. Usa o texto da
+// coluna "Base" como origem e nunca a base/cidade cadastrada do técnico.
+function resolveBaseAddressFromRaw(raw){
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const addrLoc = resolveAddressLocation(s);
+  if (!addrLoc || addrLoc.lat == null || addrLoc.lon == null) return null;
+  const state = addrLoc.state || stateFromCity(addrLoc.city) || "";
+  const cityLabel = addrLoc.city || shortAddress(s, 34);
+  return {
+    key:"custom",
+    name: cityLabel,
+    short: cityLabel.replace(/\s*\(estimado\)\s*/i, "").split(" - ")[0].slice(0, 18),
+    lat: addrLoc.lat,
+    lon: addrLoc.lon,
+    state,
+    address: s,
+    estimated: !!addrLoc.estimated
+  };
 }
 // Destino externo de referência (Curitiba)
 const DESTINO_REF = { name:"Curitiba - PR", lat:-25.4284, lon:-49.2733 };
@@ -983,6 +1007,27 @@ const CITY_HINTS = [
   ["SÃO JOÃO DA BARRA", { city:"São João da Barra - RJ", lat:-21.6383, lon:-41.0511 }],
   ["SAO JOAO DA BARRA", { city:"São João da Barra - RJ", lat:-21.6383, lon:-41.0511 }],
   ["CARAPEBUS", { city:"Carapebus - RJ", lat:-22.1856, lon:-41.6633 }],
+  ["SÃO FIDÉLIS", { city:"São Fidélis - RJ", lat:-21.6544, lon:-41.7511 }],
+  ["SAO FIDELIS", { city:"São Fidélis - RJ", lat:-21.6544, lon:-41.7511 }],
+  ["CARDOSO MOREIRA", { city:"Cardoso Moreira - RJ", lat:-21.4808, lon:-41.6169 }],
+  ["ITALVA", { city:"Italva - RJ", lat:-21.4297, lon:-41.7028 }],
+  ["APERIBÉ", { city:"Aperibé - RJ", lat:-21.6231, lon:-42.1017 }],
+  ["APERIBE", { city:"Aperibé - RJ", lat:-21.6231, lon:-42.1017 }],
+  ["MIRACEMA", { city:"Miracema - RJ", lat:-21.4139, lon:-42.1961 }],
+  ["SANTO ANTÔNIO DE PÁDUA", { city:"Santo Antônio de Pádua - RJ", lat:-21.5406, lon:-42.1831 }],
+  ["SANTO ANTONIO DE PADUA", { city:"Santo Antônio de Pádua - RJ", lat:-21.5406, lon:-42.1831 }],
+  ["CAMBUCI", { city:"Cambuci - RJ", lat:-21.5750, lon:-41.9192 }],
+  ["QUISSAMÃ", { city:"Quissamã - RJ", lat:-22.1033, lon:-41.4694 }],
+  ["QUISSAMA", { city:"Quissamã - RJ", lat:-22.1033, lon:-41.4694 }],
+  ["CONCEIÇÃO DE MACABU", { city:"Conceição de Macabu - RJ", lat:-22.0839, lon:-41.8697 }],
+  ["CONCEICAO DE MACABU", { city:"Conceição de Macabu - RJ", lat:-22.0839, lon:-41.8697 }],
+  ["TRAJANO DE MORAES", { city:"Trajano de Moraes - RJ", lat:-22.0631, lon:-42.0642 }],
+  ["NATIVIDADE", { city:"Natividade - RJ", lat:-21.0400, lon:-41.9700 }],
+  ["PORCIÚNCULA", { city:"Porciúncula - RJ", lat:-20.9633, lon:-42.0442 }],
+  ["PORCIUNCULA", { city:"Porciúncula - RJ", lat:-20.9633, lon:-42.0442 }],
+  ["VARRE-SAI", { city:"Varre-Sai - RJ", lat:-20.9269, lon:-41.8697 }],
+  ["LAJE DO MURIAÉ", { city:"Laje do Muriaé - RJ", lat:-21.2094, lon:-42.1272 }],
+  ["LAJE DO MURIAE", { city:"Laje do Muriaé - RJ", lat:-21.2094, lon:-42.1272 }],
   ["SÃO JOSÉ DOS PINHAIS", { city:"São José dos Pinhais - PR", lat:-25.5359, lon:-49.2069 }],
   ["SAO JOSE DOS PINHAIS", { city:"São José dos Pinhais - PR", lat:-25.5359, lon:-49.2069 }],
   ["CAMPO LARGO", { city:"Campo Largo - PR", lat:-25.4528, lon:-49.5266 }],
@@ -1073,6 +1118,73 @@ function stateFromCity(city){
   return m ? m[1] : null;
 }
 
+const KNOWN_UFS = ["RJ","SP","PR","SC","MG","ES","DF","BA","RS"];
+
+function ufFallbackLocation(uf){
+  const map = {
+    RJ:{ city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818 },
+    PR:{ city:"Curitiba - PR (estimado)", lat:-25.4284, lon:-49.2733 },
+    SP:{ city:"São Paulo - SP (estimado)", lat:-23.5505, lon:-46.6333 },
+    SC:{ city:"Florianópolis - SC (estimado)", lat:-27.5954, lon:-48.5480 },
+    MG:{ city:"Belo Horizonte - MG (estimado)", lat:-19.9167, lon:-43.9345 },
+    ES:{ city:"Vitória - ES (estimado)", lat:-20.2976, lon:-40.2958 },
+    DF:{ city:"Brasília - DF (estimado)", lat:-15.7939, lon:-47.8828 },
+    BA:{ city:"Salvador - BA (estimado)", lat:-12.9777, lon:-38.5016 },
+    RS:{ city:"Porto Alegre - RS (estimado)", lat:-30.0346, lon:-51.2177 }
+  };
+  return map[uf] ? { ...map[uf], state:uf, estimated:true } : null;
+}
+
+function extractUfFromAddress(address){
+  const upperA = normalizeKey(address);
+  const matches = [...upperA.matchAll(/(?:^|[\s,\-\/])([A-Z]{2})(?=[\s,\-\.]|$)/g)];
+  for (let i = matches.length - 1; i >= 0; i--){
+    const uf = matches[i][1];
+    if (KNOWN_UFS.includes(uf)) return uf;
+  }
+  return null;
+}
+
+function extractCityBeforeUf(address, uf){
+  if (!address || !uf) return null;
+  const re = new RegExp(",\\s*([^,\\-\\/]+?)\\s*(?:[-\\/]\\s*|,\\s*)" + uf + "\\b", "ig");
+  let match = null, last = null;
+  while ((match = re.exec(address)) !== null){
+    const cityName = (match[1] || "").trim();
+    if (cityName) last = cityName;
+  }
+  return last;
+}
+
+// Resolve cidade/coordenadas a partir de um endereço livre. É usado tanto
+// para o destino (coluna Endereço) quanto para a origem (coluna Base).
+function resolveAddressLocation(address){
+  const addr = (address || "").trim();
+  if (!addr) return null;
+
+  const upperA = normalizeKey(addr);
+  const ufFromAddr = extractUfFromAddress(addr);
+
+  for (const [kw, loc] of CITY_HINTS){
+    if (upperA.includes(normalizeKey(kw))){
+      const found = { ...loc };
+      if (ufFromAddr) found.state = ufFromAddr;
+      return found;
+    }
+  }
+
+  if (ufFromAddr){
+    const cityName = extractCityBeforeUf(addr, ufFromAddr);
+    const fallback = ufFallbackLocation(ufFromAddr);
+    if (cityName && fallback){
+      return { city:`${cityName} - ${ufFromAddr} (estimado)`, lat:fallback.lat, lon:fallback.lon, state:ufFromAddr, estimated:true };
+    }
+    return fallback || { state:ufFromAddr };
+  }
+
+  return null;
+}
+
 // Resolver coordenadas da unidade considerando NOME (cliente) E ENDEREÇO.
 // O endereço (coluna G) refina a resolução quando disponível, permitindo
 // distinguir unidades homônimas que ficam em locais diferentes.
@@ -1094,36 +1206,8 @@ function resolveLocation(clientName, address){
   }
 
   // 3) REFINAMENTO PELO ENDEREÇO
-  // Se o endereço for fornecido, tentamos extrair UF e cidade/bairro a partir
-  // dele. Quando o endereço aponta para um município/bairro reconhecível,
-  // suas coordenadas substituem (ou complementam) a inferida pelo nome.
-  let addrLoc = null;
-  if (addr){
-    const upperA = normalizeKey(addr);
-    // UF explícita: padrões "-RJ", " RJ,", "/RJ", "-PR", etc.
-    let ufFromAddr = null;
-    const ufMatch = upperA.match(/(?:[\s,\-\/])([A-Z]{2})(?:[\s,\-\.]|$)/g);
-    if (ufMatch){
-      // pega a última ocorrência válida (é onde costuma estar a UF)
-      const ufs = ufMatch.map(x => x.replace(/[^A-Z]/g,""));
-      const known = ["RJ","SP","PR","SC","MG","ES","DF","BA","RS"];
-      for (let i = ufs.length-1; i >= 0; i--){
-        if (known.includes(ufs[i])) { ufFromAddr = ufs[i]; break; }
-      }
-    }
-    // Tenta casar cidade/bairro via CITY_HINTS dentro do texto do endereço
-    for (const [kw, loc] of CITY_HINTS){
-      if (upperA.includes(normalizeKey(kw))){
-        addrLoc = { ...loc };
-        if (ufFromAddr) addrLoc.state = ufFromAddr;
-        break;
-      }
-    }
-    // Se só conseguimos a UF mas não a cidade, marcamos UF na base existente
-    if (!addrLoc && ufFromAddr){
-      addrLoc = { state: ufFromAddr };
-    }
-  }
+  // O endereço informado na planilha é a fonte de verdade para localização.
+  const addrLoc = resolveAddressLocation(addr);
 
   // Combina os resultados (endereço tem prioridade sobre nome quando ambos coincidem na UF;
   // se endereço aponta UF diferente, o endereço vence)
@@ -1148,14 +1232,9 @@ function resolveLocation(clientName, address){
         }
         // Sem cidade reconhecível no endereço, usamos a coordenada genérica da
         // UF correta (nunca mantemos a coordenada da base de outra UF).
-        const ufFallbackConf = {
-          RJ:{ city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818 },
-          PR:{ city:"Curitiba - PR (estimado)", lat:-25.4284, lon:-49.2733 },
-          SP:{ city:"São Paulo - SP (estimado)", lat:-23.5505, lon:-46.6333 },
-          SC:{ city:"Florianópolis - SC (estimado)", lat:-27.5954, lon:-48.5480 }
-        }[addrLoc.state];
+        const ufFallbackConf = ufFallbackLocation(addrLoc.state);
         finalLoc = fallback || (ufFallbackConf
-          ? { ...ufFallbackConf, state: addrLoc.state, estimated:true }
+          ? { ...ufFallbackConf }
           : { ...base, state: addrLoc.state, estimated:true });
       } else {
         finalLoc = { ...base, state: addrLoc.state };
@@ -1169,13 +1248,8 @@ function resolveLocation(clientName, address){
     finalLoc = { ...base };
   } else if (addrLoc && addrLoc.state){
     // só UF, sem coordenada → fallback genérico por UF
-    const ufFallback = {
-      RJ:{ city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818 },
-      PR:{ city:"Curitiba - PR (estimado)", lat:-25.4284, lon:-49.2733 },
-      SP:{ city:"São Paulo - SP (estimado)", lat:-23.5505, lon:-46.6333 },
-      SC:{ city:"Florianópolis - SC (estimado)", lat:-27.5954, lon:-48.5480 }
-    }[addrLoc.state];
-    finalLoc = ufFallback ? { ...ufFallback, state:addrLoc.state, estimated:true }
+    const ufFallback = ufFallbackLocation(addrLoc.state);
+    finalLoc = ufFallback ? { ...ufFallback }
                           : { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
   }
 
@@ -1408,10 +1482,10 @@ function computeCosts(){
     return {
       ...r,
       ano, mes, base: base.name, baseShort: base.short,
-      baseKey: base === BASES.curitiba ? "curitiba"
+      baseKey: base.key || (base === BASES.curitiba ? "curitiba"
              : base === BASES.sulacap  ? "sulacap"
              : base === BASES.campos   ? "campos"
-             : "caxias",
+             : "caxias"),
       cidade,
       unidadeKey,
       unidadeLabel,
@@ -1953,7 +2027,7 @@ function pdfHeader(pageNum, totalPages){
   return `
     <div class="pdf-header">
       <div>
-        <h1>DILIGÊNCIAS TÉCNICAS</h1>
+        <h1>GRUPO LABMEDIC - DILIGÊNCIAS TÉCNICAS</h1>
         <div class="pdf-h-sub">Relatório de Custos de Deslocamento · Assistência Técnica</div>
       </div>
       <div class="pdf-h-meta">
@@ -1967,7 +2041,7 @@ function pdfFooter(){
   const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h`;
   return `
     <div class="pdf-foot">
-      <span><strong>Diligências Técnicas</strong> · Painel de Custos de Deslocamento</span>
+      <span><strong>GRUPO LABMEDIC - Diligências Técnicas</strong> · Avaliação de Custos em Deslocamentos</span>
       <span>${params}</span>
     </div>`;
 }
@@ -1989,7 +2063,7 @@ function buildCoverPage(data, totalPages){
         <div class="cv-logo">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </div>
-        <h1>Diligências Técnicas</h1>
+        <h1>GRUPO LABMEDIC - Diligências Técnicas</h1>
         <h2>Relatório de Custos de Deslocamento</h2>
         <div class="cv-divider"></div>
         <div class="cv-meta">
@@ -2512,7 +2586,7 @@ async function downloadPdfFromPreview(){
             pdf.setFontSize(11); pdf.setTextColor(30,27,75);
             pdf.text("Registros Detalhados — Tarefas", 8, 12);
             pdf.setFontSize(8); pdf.setTextColor(120,120,130);
-            pdf.text("Diligências Técnicas · Painel de Custos de Deslocamento", 8, pageH - 6);
+            pdf.text("GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamentos", 8, pageH - 6);
             pdf.text("Página " + pdf.internal.getNumberOfPages(), pageW - 8, pageH - 6, { align: "right" });
           }
         });
