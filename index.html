@@ -227,6 +227,14 @@ tbody tr:hover{background:var(--table-row-hover)}
 tbody tr.zebra{background:var(--table-zebra)}
 .money{font-variant-numeric:tabular-nums;font-weight:600;color:var(--text)}
 .money-total{color:var(--money-total);font-weight:800}
+.totals-row{background:var(--table-foot)!important;font-weight:800;color:var(--text)}
+.totals-row td{border-top:2px solid var(--border-strong);padding:12px 8px!important;font-size:12.5px}
+.totals-row td.totals-label{color:var(--text);letter-spacing:.6px;text-transform:uppercase;font-weight:800}
+.totals-row td.money{color:var(--text);font-weight:800}
+.totals-row td.money.money-total{color:var(--money-total);font-weight:900;font-size:13.5px}
+html[data-theme="dark"] .totals-row td{background:var(--table-foot)!important;color:var(--text)}
+html[data-theme="dark"] .totals-row td.totals-label{color:#fff}
+html[data-theme="dark"] .totals-row td.money{color:#e8ecf8}
 .km{font-variant-numeric:tabular-nums;color:var(--text-soft)}
 .badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--badge-bg);color:var(--badge-fg)}
 .badge.bdg-period{background:var(--badge-period-bg);color:var(--badge-period-fg)}
@@ -393,6 +401,31 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
   .config-strip{grid-template-columns:1fr}
   .app{padding:16px}
 }
+
+/* ---------- Multi-select filter ---------- */
+.ms{position:relative;width:100%}
+.ms-btn{width:100%;padding:9px 32px 9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);font-size:13px;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;display:flex;align-items:center;gap:6px;min-height:36px;transition:all .15s;position:relative}
+.ms-btn:hover{border-color:var(--border-strong)}
+.ms-btn:focus,.ms.open .ms-btn{outline:none;border-color:var(--primary);background:var(--input-bg-focus);box-shadow:0 0 0 3px rgba(79,70,229,.22)}
+.ms-btn::after{content:"";position:absolute;right:11px;top:50%;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-70%) rotate(45deg);transition:transform .15s}
+.ms.open .ms-btn::after{transform:translateY(-30%) rotate(-135deg)}
+.ms-btn-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.ms-btn-label.placeholder{color:var(--muted)}
+.ms-count{background:var(--primary);color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700;line-height:1.4;flex-shrink:0}
+.ms-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:50;background:var(--panel);border:1px solid var(--border-strong);border-radius:10px;box-shadow:var(--shadow-lg);max-height:280px;overflow:hidden;flex-direction:column}
+.ms.open .ms-panel{display:flex}
+.ms-search{padding:8px;border-bottom:1px solid var(--border)}
+.ms-search input{width:100%;padding:7px 9px;border-radius:8px;border:1px solid var(--border);background:var(--input-bg);font-size:12px;color:var(--text);font-family:inherit;outline:none}
+.ms-search input:focus{border-color:var(--primary)}
+.ms-tools{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);background:var(--panel-soft)}
+.ms-tools button{flex:1;padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:var(--panel);color:var(--text-soft);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.ms-tools button:hover{background:var(--primary-soft);color:var(--primary);border-color:var(--primary)}
+.ms-list{overflow-y:auto;max-height:200px;padding:4px}
+.ms-item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--text);user-select:none}
+.ms-item:hover{background:var(--table-row-hover)}
+.ms-item input[type="checkbox"]{width:15px;height:15px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.ms-item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-empty{padding:14px;text-align:center;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
@@ -405,8 +438,8 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
       <div class="brand-text">
-        <h1>GRUPO LABMEDIC - Diligências Técnicas</h1>
-        <p>Avaliação de custos em deslocamento · Assistência técnica</p>
+        <h1>GRUPO LABMERIC - Diligências Técnicas</h1>
+        <p>Painel inteligente de custos de deslocamento · Assistência técnica</p>
       </div>
     </div>
     <div class="topbar-actions">
@@ -547,23 +580,23 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
       </div>
       <div class="filter-group">
         <label>Tipo de tarefa</label>
-        <select id="fltTipo"><option value="">Todos</option></select>
+        <div class="ms" id="fltTipo" data-placeholder="Todos"></div>
       </div>
       <div class="filter-group">
         <label>Cliente (Unidade)</label>
-        <select id="fltCliente"><option value="">Todos</option></select>
+        <div class="ms" id="fltCliente" data-placeholder="Todos"></div>
       </div>
       <div class="filter-group">
         <label>Ano</label>
-        <select id="fltAno"><option value="">Todos</option></select>
+        <div class="ms" id="fltAno" data-placeholder="Todos"></div>
       </div>
       <div class="filter-group">
         <label>Mês</label>
-        <select id="fltMes"><option value="">Todos</option></select>
+        <div class="ms" id="fltMes" data-placeholder="Todos"></div>
       </div>
       <div class="filter-group">
         <label>Técnico responsável</label>
-        <select id="fltResp"><option value="">Todos</option></select>
+        <div class="ms" id="fltResp" data-placeholder="Todos"></div>
       </div>
       <div class="filter-actions">
         <button class="btn btn-ghost" id="btnClearFilters">Limpar</button>
@@ -1505,6 +1538,131 @@ function computeCosts(){
   State.rows = rows;
 }
 
+// ---------- MULTI-SELECT (checkboxes) ----------
+const MS = {
+  instances: {},
+  init(id, opts){
+    const root = document.getElementById(id);
+    if (!root) return;
+    const placeholder = root.dataset.placeholder || "Todos";
+    root.innerHTML = `
+      <button type="button" class="ms-btn"><span class="ms-btn-label placeholder">${placeholder}</span></button>
+      <div class="ms-panel">
+        <div class="ms-search"><input type="text" placeholder="Buscar..." /></div>
+        <div class="ms-tools"><button type="button" data-act="all">Todos</button><button type="button" data-act="none">Nenhum</button></div>
+        <div class="ms-list"></div>
+      </div>`;
+    const inst = {
+      id, root, placeholder,
+      items: [],           // [{value:string, label:string}]
+      selected: new Set(),  // string values
+      formatter: opts && opts.formatter || null,
+      onChange: opts && opts.onChange || (()=>{}),
+    };
+    this.instances[id] = inst;
+    const btn = root.querySelector(".ms-btn");
+    const panel = root.querySelector(".ms-panel");
+    const search = root.querySelector(".ms-search input");
+    const list = root.querySelector(".ms-list");
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const open = root.classList.toggle("open");
+      // Close others
+      Object.values(MS.instances).forEach(o => { if (o.id !== id) o.root.classList.remove("open"); });
+      if (open) setTimeout(()=>search.focus(),0);
+    });
+    panel.addEventListener("click", e => e.stopPropagation());
+    root.querySelector('[data-act="all"]').addEventListener("click", () => {
+      const term = search.value.trim().toLowerCase();
+      inst.items.forEach(it => {
+        if (!term || it.label.toLowerCase().includes(term)) inst.selected.add(it.value);
+      });
+      MS.renderList(id); MS.updateButton(id); inst.onChange();
+    });
+    root.querySelector('[data-act="none"]').addEventListener("click", () => {
+      const term = search.value.trim().toLowerCase();
+      if (!term) inst.selected.clear();
+      else inst.items.forEach(it => {
+        if (it.label.toLowerCase().includes(term)) inst.selected.delete(it.value);
+      });
+      MS.renderList(id); MS.updateButton(id); inst.onChange();
+    });
+    search.addEventListener("input", () => MS.renderList(id));
+    list.addEventListener("change", e => {
+      const cb = e.target.closest('input[type="checkbox"]');
+      if (!cb) return;
+      const v = cb.dataset.value;
+      if (cb.checked) inst.selected.add(v); else inst.selected.delete(v);
+      MS.updateButton(id);
+      inst.onChange();
+    });
+  },
+  setOptions(id, items, formatter){
+    const inst = this.instances[id];
+    if (!inst) return;
+    if (formatter) inst.formatter = formatter;
+    inst.items = items.map(v => ({ value: String(v), label: inst.formatter ? inst.formatter(v) : String(v) }));
+    // preserve selections that still exist
+    const valid = new Set(inst.items.map(i=>i.value));
+    inst.selected = new Set([...inst.selected].filter(v => valid.has(v)));
+    this.renderList(id);
+    this.updateButton(id);
+  },
+  renderList(id){
+    const inst = this.instances[id];
+    const list = inst.root.querySelector(".ms-list");
+    const term = inst.root.querySelector(".ms-search input").value.trim().toLowerCase();
+    const visible = inst.items.filter(it => !term || it.label.toLowerCase().includes(term));
+    if (!visible.length){ list.innerHTML = '<div class="ms-empty">Nenhuma opção</div>'; return; }
+    list.innerHTML = visible.map(it => {
+      const esc = it.label.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+      const val = it.value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+      const checked = inst.selected.has(it.value) ? "checked" : "";
+      return `<label class="ms-item"><input type="checkbox" data-value="${val}" ${checked}/><span title="${esc}">${esc}</span></label>`;
+    }).join("");
+  },
+  updateButton(id){
+    const inst = this.instances[id];
+    const label = inst.root.querySelector(".ms-btn-label");
+    const n = inst.selected.size;
+    if (n === 0){
+      label.className = "ms-btn-label placeholder";
+      label.textContent = inst.placeholder;
+    } else if (n === 1){
+      const v = [...inst.selected][0];
+      const it = inst.items.find(i=>i.value===v);
+      label.className = "ms-btn-label";
+      label.textContent = it ? it.label : v;
+    } else {
+      label.className = "ms-btn-label";
+      label.innerHTML = `<span class="ms-count">${n}</span> selecionados`;
+    }
+  },
+  getSelected(id){
+    const inst = this.instances[id];
+    return inst ? inst.selected : new Set();
+  },
+  getSelectedLabels(id){
+    const inst = this.instances[id];
+    if (!inst) return [];
+    return [...inst.selected].map(v => {
+      const it = inst.items.find(i=>i.value===v);
+      return it ? it.label : v;
+    });
+  },
+  clear(id){
+    const inst = this.instances[id];
+    if (!inst) return;
+    inst.selected.clear();
+    this.renderList(id);
+    this.updateButton(id);
+  },
+  clearAll(){ Object.keys(this.instances).forEach(id => this.clear(id)); },
+};
+document.addEventListener("click", () => {
+  Object.values(MS.instances).forEach(o => o.root.classList.remove("open"));
+});
+
 // ---------- FILTROS ----------
 function populateFilters(){
   const tipos = new Set(), clientes = new Set(), anos = new Set(), meses = new Set(), resps = new Set();
@@ -1515,37 +1673,31 @@ function populateFilters(){
     if (r.mes) meses.add(r.mes);
     if (r.responsavel) resps.add(r.responsavel);
   });
-  const fill = (id, items, formatter) => {
-    const sel = $(id);
-    const cur = sel.value;
-    sel.innerHTML = '<option value="">Todos</option>' + items.map(v => `<option value="${v}">${formatter?formatter(v):v}</option>`).join("");
-    if (items.includes(cur) || items.map(String).includes(cur)) sel.value = cur;
-  };
-  fill("fltTipo", [...tipos].sort());
-  fill("fltCliente", [...clientes].sort());
-  fill("fltAno", [...anos].sort((a,b)=>a-b));
-  fill("fltMes", [...meses].sort((a,b)=>a-b), v => `${String(v).padStart(2,"0")} - ${MES_FULL[v]}`);
-  fill("fltResp", [...resps].sort());
+  MS.setOptions("fltTipo", [...tipos].sort());
+  MS.setOptions("fltCliente", [...clientes].sort());
+  MS.setOptions("fltAno", [...anos].sort((a,b)=>a-b));
+  MS.setOptions("fltMes", [...meses].sort((a,b)=>a-b), v => `${String(v).padStart(2,"0")} - ${MES_FULL[v]}`);
+  MS.setOptions("fltResp", [...resps].sort());
 }
 
 function applyFilters(){
   const q = $("fltSearch").value.trim().toLowerCase();
-  const fTipo = $("fltTipo").value;
-  const fCli = $("fltCliente").value;
-  const fAno = $("fltAno").value;
-  const fMes = $("fltMes").value;
-  const fResp = $("fltResp").value;
+  const fTipo = MS.getSelected("fltTipo");
+  const fCli = MS.getSelected("fltCliente");
+  const fAno = MS.getSelected("fltAno");
+  const fMes = MS.getSelected("fltMes");
+  const fResp = MS.getSelected("fltResp");
 
   State.filtered = State.rows.filter(r => {
     if (q){
       const blob = [r.codigo, r.cliente, r.endereco, r.tipo, r.responsavel, r.tarefaDe, r.cidade].join(" ").toLowerCase();
       if (!blob.includes(q)) return false;
     }
-    if (fTipo && r.tipo !== fTipo) return false;
-    if (fCli && r.cliente !== fCli) return false;
-    if (fAno && String(r.ano) !== fAno) return false;
-    if (fMes && String(r.mes) !== fMes) return false;
-    if (fResp && r.responsavel !== fResp) return false;
+    if (fTipo.size && !fTipo.has(r.tipo)) return false;
+    if (fCli.size && !fCli.has(r.cliente)) return false;
+    if (fAno.size && !fAno.has(String(r.ano))) return false;
+    if (fMes.size && !fMes.has(String(r.mes))) return false;
+    if (fResp.size && !fResp.has(r.responsavel)) return false;
     return true;
   });
 
@@ -1659,8 +1811,8 @@ function renderTable(){
     a.km += r.distKm; a.h += r.tempoH; a.f += r.custoFuel;
     a.v += r.custoVeic; a.s += r.custoSal; a.hp += r.custoHosp; a.t += r.custoTotal; return a;
   }, {km:0,h:0,f:0,v:0,s:0,hp:0,t:0});
-  html += `<tr style="background:#f4f6fc;font-weight:700">
-    <td colspan="7" style="text-align:right">TOTAIS</td>
+  html += `<tr class="totals-row">
+    <td colspan="7" class="totals-label" style="text-align:right">TOTAIS</td>
     <td style="text-align:right">${fmtKm(totals.km)}</td>
     <td style="text-align:right">${totals.h.toFixed(2)} h</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.f)}</td>
@@ -1776,11 +1928,33 @@ function renderCharts(){
   const cliMap = {};
   rows.forEach(r => {
     if (!r.unidadeKey) return;
-    if (!cliMap[r.unidadeKey]) cliMap[r.unidadeKey] = { total:0, label:r.unidadeLabel || r.cliente };
+    if (!cliMap[r.unidadeKey]) cliMap[r.unidadeKey] = { total:0, label:r.unidadeLabel || r.cliente, cliente:r.cliente || r.unidadeLabel || "" };
     cliMap[r.unidadeKey].total += r.custoTotal;
   });
   const cliSorted = Object.entries(cliMap).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
-  const cliLabels = cliSorted.map(c => c[1].label.length>40 ? c[1].label.slice(0,40)+"…" : c[1].label);
+  const wrapChartLabel = (str, maxLen = 24, maxLines = 3) => {
+    const words = String(str).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = "";
+    for (const w of words) {
+      if (!cur) { cur = w; continue; }
+      if ((cur + " " + w).length <= maxLen) cur += " " + w;
+      else { lines.push(cur); cur = w; if (lines.length === maxLines - 1) break; }
+    }
+    if (cur) lines.push(cur);
+    if (words.length && lines.length === maxLines) {
+      // append remaining words to last line, truncated
+      const usedWords = lines.join(" ").split(/\s+/).length;
+      const rest = words.slice(usedWords).join(" ");
+      if (rest) {
+        let last = lines[maxLines - 1] + " " + rest;
+        if (last.length > maxLen) last = last.slice(0, maxLen - 1) + "…";
+        lines[maxLines - 1] = last;
+      }
+    }
+    return lines;
+  };
+  const cliLabels = cliSorted.map(c => wrapChartLabel(c[1].cliente || c[1].label, 24, 3));
   const cliData = cliSorted.map(c => c[1].total);
 
   const colorBars = ["#4f46e5","#7c3aed","#06b6d4","#10b981","#f59e0b","#ef4444","#8b5cf6","#0ea5e9"];
@@ -1837,7 +2011,7 @@ function renderCharts(){
       },
       scales:{
         x:{ticks:{callback: v => fmtBRLshort(v), font:{size:10}, color:th.tick}, grid:{color:th.grid}},
-        y:{ticks:{font:{size:10.5}, color:th.tick}, grid:{display:false}}
+        y:{ticks:{font:{size:11}, color:th.tick, autoSkip:false}, grid:{display:false}, afterFit: (axis) => { axis.width = 180; }}
       }
     }
   });
@@ -2008,12 +2182,13 @@ function collectReportData(){
 
 function getFiltersDescription(){
   const f = [];
+  const join = arr => arr.join(", ");
   if ($("fltSearch").value) f.push(["Busca", $("fltSearch").value]);
-  if ($("fltTipo").value)   f.push(["Tipo", $("fltTipo").value]);
-  if ($("fltCliente").value)f.push(["Cliente", $("fltCliente").value]);
-  if ($("fltAno").value)    f.push(["Ano", $("fltAno").value]);
-  if ($("fltMes").value)    f.push(["Mês", MES_FULL[+$("fltMes").value]]);
-  if ($("fltResp").value)   f.push(["Técnico", $("fltResp").value]);
+  const tipos = MS.getSelectedLabels("fltTipo");   if (tipos.length)   f.push(["Tipo", join(tipos)]);
+  const clis  = MS.getSelectedLabels("fltCliente");if (clis.length)    f.push(["Cliente", join(clis)]);
+  const anos  = MS.getSelectedLabels("fltAno");    if (anos.length)    f.push(["Ano", join(anos)]);
+  const meses = MS.getSelectedLabels("fltMes");    if (meses.length)   f.push(["Mês", join(meses)]);
+  const resps = MS.getSelectedLabels("fltResp");   if (resps.length)   f.push(["Técnico", join(resps)]);
   return f;
 }
 
@@ -2027,8 +2202,8 @@ function pdfHeader(pageNum, totalPages){
   return `
     <div class="pdf-header">
       <div>
-        <h1>GRUPO LABMEDIC - DILIGÊNCIAS TÉCNICAS</h1>
-        <div class="pdf-h-sub">Relatório de Custos de Deslocamento · Assistência Técnica</div>
+        <h1>DILIGÊNCIAS TÉCNICAS</h1>
+        <div class="pdf-h-sub">GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento</div>
       </div>
       <div class="pdf-h-meta">
         <div>Emitido em <strong>${now}</strong></div>
@@ -2041,7 +2216,7 @@ function pdfFooter(){
   const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h`;
   return `
     <div class="pdf-foot">
-      <span><strong>GRUPO LABMEDIC - Diligências Técnicas</strong> · Avaliação de Custos em Deslocamentos</span>
+      <span><strong>GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento</span>
       <span>${params}</span>
     </div>`;
 }
@@ -2586,7 +2761,7 @@ async function downloadPdfFromPreview(){
             pdf.setFontSize(11); pdf.setTextColor(30,27,75);
             pdf.text("Registros Detalhados — Tarefas", 8, 12);
             pdf.setFontSize(8); pdf.setTextColor(120,120,130);
-            pdf.text("GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamentos", 8, pageH - 6);
+            pdf.text("GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento", 8, pageH - 6);
             pdf.text("Página " + pdf.internal.getNumberOfPages(), pageW - 8, pageH - 6, { align: "right" });
           }
         });
@@ -2686,14 +2861,13 @@ function bindEvents(){
     if (e.key === "Escape" && $("pdfModal").classList.contains("show")) closePdfPreview();
   });
   $("btnTheme").addEventListener("click", toggleTheme);
+  ["fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => MS.init(id, { onChange: applyFilters }));
   $("btnClearFilters").addEventListener("click", () => {
-    ["fltSearch","fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => $(id).value = "");
+    $("fltSearch").value = "";
+    MS.clearAll();
     applyFilters();
   });
-  ["fltSearch","fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => {
-    $(id).addEventListener("input", applyFilters);
-    $(id).addEventListener("change", applyFilters);
-  });
+  $("fltSearch").addEventListener("input", applyFilters);
   ["cfgFuelPrice","cfgConsumo","cfgVeic","cfgSalario","cfgHospedagem"].forEach(id => {
     $(id).addEventListener("change", () => {
       if (State.raw.length){
