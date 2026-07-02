@@ -191,9 +191,15 @@ html[data-theme="dark"]{--invert-icons:1}
 
 /* LAYOUT */
 .layout{display:grid;grid-template-columns:280px 1fr;gap:20px}
-.sidebar{background:var(--panel);border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;height:fit-content;position:sticky;top:20px;transition:background .25s, border-color .25s}
+.sidebar{background:var(--panel);border-radius:18px;border:1px solid var(--border);box-shadow:var(--shadow);padding:18px;padding-right:12px;height:fit-content;max-height:calc(100vh - 40px);overflow-y:auto;position:sticky;top:20px;transition:background .25s, border-color .25s;
+  scrollbar-width:auto; scrollbar-color:var(--primary) var(--panel-soft);}
 .sidebar h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
 .sidebar h3 svg{width:16px;height:16px;color:var(--primary)}
+/* Barra de rolagem do quadro de filtros: destacada e fácil de usar */
+.sidebar::-webkit-scrollbar{width:10px}
+.sidebar::-webkit-scrollbar-track{background:var(--panel-soft);border-radius:10px;margin:4px 0}
+.sidebar::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--primary),var(--primary-2));border-radius:10px;border:2px solid var(--panel)}
+.sidebar::-webkit-scrollbar-thumb:hover{background:var(--primary-2)}
 .filter-group{margin-bottom:14px}
 .filter-group label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-bottom:5px}
 .filter-group select,.filter-group input{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--border);background:var(--input-bg);font-size:13px;color:var(--text);font-family:inherit;outline:none;transition:all .15s}
@@ -390,7 +396,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 /* RESPONSIVE */
 @media (max-width:1200px){
   .layout{grid-template-columns:1fr}
-  .sidebar{position:relative;top:0}
+  .sidebar{position:relative;top:0;max-height:none;overflow-y:visible}
   .kpis{grid-template-columns:repeat(3,1fr)}
   .chart-grid{grid-template-columns:1fr}
   .hero-inner{grid-template-columns:1fr}
@@ -438,7 +444,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       </div>
       <div class="brand-text">
-        <h1>GRUPO LABMERIC - Diligências Técnicas</h1>
+        <h1>GRUPO LABMEDIC - Diligências Técnicas</h1>
         <p>Painel inteligente de custos de deslocamento · Assistência técnica</p>
       </div>
     </div>
@@ -1017,7 +1023,9 @@ const CITY_HINTS = [
   ["TIJUCA", { city:"Tijuca - RJ", lat:-22.9259, lon:-43.2356 }],
   ["IPANEMA", { city:"Ipanema - RJ", lat:-22.9837, lon:-43.2033 }],
   ["COPACABANA", { city:"Copacabana - RJ", lat:-22.9711, lon:-43.1822 }],
+  ["SIQUEIRA CAMPOS", { city:"Copacabana - RJ", lat:-22.9711, lon:-43.1822 }],
   ["CAMPO GRANDE", { city:"Campo Grande - RJ", lat:-22.9050, lon:-43.5610 }],
+  ["CAMPOS DOS AFONSOS", { city:"Rio de Janeiro - Campos dos Afonsos", lat:-22.8823, lon:-43.3868 }],
   ["SANTA CRUZ", { city:"Santa Cruz - RJ", lat:-22.9176, lon:-43.6856 }],
   ["BANGU", { city:"Bangu - RJ", lat:-22.8786, lon:-43.4658 }],
   ["REALENGO", { city:"Realengo - RJ", lat:-22.8867, lon:-43.4290 }],
@@ -1072,6 +1080,28 @@ const CITY_HINTS = [
   ["LORENA", { city:"Lorena - SP", lat:-22.7350, lon:-45.1183 }]
 ];
 
+// A lista acima é percorrida por ORDEM DE ESPECIFICIDADE (palavra-chave mais
+// longa/específica primeiro), e não pela ordem em que foi declarada.
+// Isso evita falsos positivos como endereços da capital que contenham a
+// palavra "CAMPOS" incidentalmente (ex.: "Rua Siqueira Campos" em
+// Copacabana, ou o bairro "Campos dos Afonsos" no Rio de Janeiro) sendo
+// classificados como Campos dos Goytacazes só porque a palavra-chave
+// genérica "CAMPOS" aparecia antes no array.
+const CITY_HINTS_BY_SPECIFICITY = [...CITY_HINTS].sort(
+  (a, b) => normalizeKey(b[0]).length - normalizeKey(a[0]).length
+);
+
+// Ponto único de casamento de texto livre (nome de cliente ou endereço)
+// contra as palavras-chave de cidade/bairro. Sempre usar esta função (em vez
+// de percorrer CITY_HINTS diretamente) para garantir que o trecho mais
+// específico vença, independentemente da ordem de declaração.
+function matchCityHint(upperText){
+  for (const [kw, loc] of CITY_HINTS_BY_SPECIFICITY){
+    if (upperText.includes(normalizeKey(kw))) return loc;
+  }
+  return null;
+}
+
 // ---------- STATE ----------
 const State = {
   raw: [],         // linhas brutas
@@ -1095,6 +1125,14 @@ const fmtBRLshort = v => {
 };
 const fmtKm = v => (v||0).toLocaleString("pt-BR",{maximumFractionDigits:1}) + " km";
 const fmtHr = v => (v||0).toLocaleString("pt-BR",{maximumFractionDigits:1}) + " h";
+// Tempo em horas/minutos (ex.: "2h 30min") em vez de fração de hora (ex.: "2.5 h").
+// Usado no quadro "Registros" (tabela em tela, prévia de PDF, PDF final e fallback).
+const fmtHrMin = v => {
+  const totalMin = Math.round((v||0) * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return `${h}h ${String(m).padStart(2,"0")}min`;
+};
 
 function toast(msg, type="info", duration=4000){
   const t = document.createElement("div");
@@ -1198,12 +1236,11 @@ function resolveAddressLocation(address){
   const upperA = normalizeKey(addr);
   const ufFromAddr = extractUfFromAddress(addr);
 
-  for (const [kw, loc] of CITY_HINTS){
-    if (upperA.includes(normalizeKey(kw))){
-      const found = { ...loc };
-      if (ufFromAddr) found.state = ufFromAddr;
-      return found;
-    }
+  const hint = matchCityHint(upperA);
+  if (hint){
+    const found = { ...hint };
+    if (ufFromAddr) found.state = ufFromAddr;
+    return found;
   }
 
   if (ufFromAddr){
@@ -1233,9 +1270,8 @@ function resolveLocation(clientName, address){
   // 2) Heurística do nome (palavras-chave de cidade/bairro)
   if (!base && cli){
     const upper = normalizeKey(cli);
-    for (const [kw, loc] of CITY_HINTS){
-      if (upper.includes(normalizeKey(kw))) { base = { ...loc }; break; }
-    }
+    const hint = matchCityHint(upper);
+    if (hint) base = { ...hint };
   }
 
   // 3) REFINAMENTO PELO ENDEREÇO
@@ -1258,11 +1294,9 @@ function resolveLocation(clientName, address){
       const baseState = base.state || stateFromCity(base.city);
       if (baseState && baseState !== addrLoc.state){
         // Conflito de UF: endereço vence.
-        let fallback = null;
         const upperA = normalizeKey(addr);
-        for (const [kw, loc] of CITY_HINTS){
-          if (upperA.includes(normalizeKey(kw))) { fallback = { ...loc, state: addrLoc.state }; break; }
-        }
+        const hintForFallback = matchCityHint(upperA);
+        const fallback = hintForFallback ? { ...hintForFallback, state: addrLoc.state } : null;
         // Sem cidade reconhecível no endereço, usamos a coordenada genérica da
         // UF correta (nunca mantemos a coordenada da base de outra UF).
         const ufFallbackConf = ufFallbackLocation(addrLoc.state);
@@ -1580,11 +1614,8 @@ const MS = {
       MS.renderList(id); MS.updateButton(id); inst.onChange();
     });
     root.querySelector('[data-act="none"]').addEventListener("click", () => {
-      const term = search.value.trim().toLowerCase();
-      if (!term) inst.selected.clear();
-      else inst.items.forEach(it => {
-        if (it.label.toLowerCase().includes(term)) inst.selected.delete(it.value);
-      });
+      inst.selected.clear();
+      search.value = "";
       MS.renderList(id); MS.updateButton(id); inst.onChange();
     });
     search.addEventListener("input", () => MS.renderList(id));
@@ -1744,7 +1775,7 @@ const COLS = [
   { key:"baseShort", label:"Base", w:80 },
   { key:"responsavel", label:"Técnico", w:140 },
   { key:"distKm", label:"Dist. (km)", w:90, align:"right", fmt:fmtKm },
-  { key:"tempoH", label:"Tempo (h)", w:90, align:"right", fmt:v=>v.toFixed(2)+" h" },
+  { key:"tempoH", label:"Tempo", w:100, align:"right", fmt:v=>fmtHrMin(v) },
   { key:"custoFuel", label:"Combustível", w:110, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoVeic", label:"Veículo (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoSal", label:"Salário (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
@@ -1814,7 +1845,7 @@ function renderTable(){
   html += `<tr class="totals-row">
     <td colspan="7" class="totals-label" style="text-align:right">TOTAIS</td>
     <td style="text-align:right">${fmtKm(totals.km)}</td>
-    <td style="text-align:right">${totals.h.toFixed(2)} h</td>
+    <td style="text-align:right">${fmtHrMin(totals.h)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.f)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.v)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.s)}</td>
@@ -1875,17 +1906,17 @@ function renderTechDashboard(){
       <td><strong>${name}</strong></td>
       <td style="text-align:right">${v.count.toLocaleString("pt-BR")}</td>
       <td style="text-align:right">${fmtKm(v.km)}</td>
-      <td style="text-align:right">${v.h.toFixed(1)} h</td>
+      <td style="text-align:right">${fmtHrMin(v.h)}</td>
       <td style="text-align:right" class="money money-total">${fmtBRL(v.total)}</td>
       <td style="text-align:right" class="money">${fmtBRL(v.count ? v.total/v.count : 0)}</td>
       <td><div style="display:flex;flex-wrap:wrap;gap:4px">${tipos}</div></td>
     </tr>`;
   });
-  html += `<tr style="background:#f4f6fc;font-weight:700">
-    <td style="text-align:right">TOTAIS · ${list.length} técnico(s)</td>
-    <td style="text-align:right">${g.count.toLocaleString("pt-BR")}</td>
-    <td style="text-align:right">${fmtKm(g.km)}</td>
-    <td style="text-align:right">${g.h.toFixed(1)} h</td>
+  html += `<tr class="totals-row">
+    <td class="totals-label" style="text-align:right">TOTAIS · ${list.length} técnico(s)</td>
+    <td class="money" style="text-align:right">${g.count.toLocaleString("pt-BR")}</td>
+    <td class="money" style="text-align:right">${fmtKm(g.km)}</td>
+    <td class="money" style="text-align:right">${fmtHrMin(g.h)}</td>
     <td style="text-align:right" class="money money-total">${fmtBRL(g.total)}</td>
     <td style="text-align:right" class="money">${fmtBRL(g.count ? g.total/g.count : 0)}</td>
     <td></td>
@@ -2263,7 +2294,7 @@ function buildSummaryPage(data, pageNum, totalPages){
     <div class="pdf-kpis">
       <div class="pdf-kpi k1"><div><div class="lbl">Tarefas</div><div class="val">${n.toLocaleString("pt-BR")}</div></div><div class="sub">Registros considerados</div></div>
       <div class="pdf-kpi k2"><div><div class="lbl">Distância total</div><div class="val">${fmtKm(t.km)}</div></div><div class="sub">Média ${avgKm.toFixed(1)} km/tarefa</div></div>
-      <div class="pdf-kpi k3"><div><div class="lbl">Horas em desloc.</div><div class="val">${t.h.toFixed(1)} h</div></div><div class="sub">Média ${avgH.toFixed(2)} h/tarefa</div></div>
+      <div class="pdf-kpi k3"><div><div class="lbl">Horas em desloc.</div><div class="val">${fmtHrMin(t.h)}</div></div><div class="sub">Média ${fmtHrMin(avgH)}/tarefa</div></div>
       <div class="pdf-kpi k4"><div><div class="lbl">Combustível</div><div class="val">${fmtBRL(t.f)}</div></div><div class="sub">${((t.f/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
       <div class="pdf-kpi k5"><div><div class="lbl">Veículo (rateio)</div><div class="val">${fmtBRL(t.v)}</div></div><div class="sub">${((t.v/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
       <div class="pdf-kpi k6"><div><div class="lbl">Salário (rateio)</div><div class="val">${fmtBRL(t.s)}</div></div><div class="sub">${((t.s/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
@@ -2373,7 +2404,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
         <td>${r.baseShort || ""}</td>
         <td>${(r.responsavel || "").substring(0,20)}</td>
         <td class="num">${r.distKm.toFixed(0)} km</td>
-        <td class="num">${r.tempoH.toFixed(1)}h</td>
+        <td class="num">${fmtHrMin(r.tempoH)}</td>
         <td class="num">${fmtBRL(r.custoFuel)}</td>
         <td class="num">${fmtBRL(r.custoVeic)}</td>
         <td class="num">${fmtBRL(r.custoSal)}</td>
@@ -2384,7 +2415,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
       <tfoot><tr>
         <td colspan="7">TOTAIS GERAIS · ${rows.length.toLocaleString("pt-BR")} registro(s)</td>
         <td class="num">${fmtKm(t.km)}</td>
-        <td class="num">${t.h.toFixed(0)}h</td>
+        <td class="num">${fmtHrMin(t.h)}</td>
         <td class="num">${fmtBRL(t.f)}</td>
         <td class="num">${fmtBRL(t.v)}</td>
         <td class="num">${fmtBRL(t.s)}</td>
@@ -2419,7 +2450,7 @@ function buildBreakdownPage(data, pageNum, totalPages){
       <td>${pdfBadgeForBase(v.key,k)}</td>
       <td class="num">${v.count}</td>
       <td class="num">${fmtKm(v.km)}</td>
-      <td class="num">${v.h.toFixed(1)} h</td>
+      <td class="num">${fmtHrMin(v.h)}</td>
       <td class="num total-col">${fmtBRL(v.total)}</td>
       <td class="num">${((v.total/(t.t||1))*100).toFixed(1)}%</td>
     </tr>`).join("");
@@ -2461,7 +2492,7 @@ function buildBreakdownPage(data, pageNum, totalPages){
             <table class="pdf-table">
               <thead><tr><th>Base</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Horas</th><th class="num">Custo Total</th><th class="num">%</th></tr></thead>
               <tbody>${baseRows}</tbody>
-              <tfoot><tr><td>TOTAIS</td><td class="num">${data.rows.length}</td><td class="num">${fmtKm(t.km)}</td><td class="num">${t.h.toFixed(1)} h</td><td class="num total-col">${fmtBRL(t.t)}</td><td class="num">100%</td></tr></tfoot>
+              <tfoot><tr><td>TOTAIS</td><td class="num">${data.rows.length}</td><td class="num">${fmtKm(t.km)}</td><td class="num">${fmtHrMin(t.h)}</td><td class="num total-col">${fmtBRL(t.t)}</td><td class="num">100%</td></tr></tfoot>
             </table>
           </div>
           <div class="pdf-summary-card">
@@ -2497,7 +2528,7 @@ function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTa
       <td class="center">${pdfBadgeForBase(r.baseKey, r.baseShort)}</td>
       <td>${(r.responsavel||"").substring(0,22)}</td>
       <td class="num">${r.distKm.toFixed(1)}</td>
-      <td class="num">${r.tempoH.toFixed(2)}h</td>
+      <td class="num">${fmtHrMin(r.tempoH)}</td>
       <td class="num">${fmtBRL(r.custoFuel)}</td>
       <td class="num">${fmtBRL(r.custoVeic)}</td>
       <td class="num">${fmtBRL(r.custoSal)}</td>
@@ -2510,7 +2541,7 @@ function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTa
       <tr>
         <td colspan="7" style="text-align:right">TOTAIS GERAIS →</td>
         <td class="num">${fmtKm(t.km)}</td>
-        <td class="num">${t.h.toFixed(1)}h</td>
+        <td class="num">${fmtHrMin(t.h)}</td>
         <td class="num">${fmtBRL(t.f)}</td>
         <td class="num">${fmtBRL(t.v)}</td>
         <td class="num">${fmtBRL(t.s)}</td>
@@ -2731,10 +2762,10 @@ async function downloadPdfFromPreview(){
       r.codigo || "", r.dataFormat || "", (r.tipo || "").substring(0,22),
       (r.cliente || "").substring(0,42), (r.cidade || ""), r.baseShort || "",
       (r.responsavel || "").substring(0,18),
-      r.distKm.toFixed(0), r.tempoH.toFixed(1) + "h",
+      r.distKm.toFixed(0), fmtHrMin(r.tempoH),
       fmtBRL(r.custoFuel), fmtBRL(r.custoVeic), fmtBRL(r.custoSal), fmtBRL(r.custoHosp), fmtBRL(r.custoTotal)
     ]);
-    const footRow = ["TOTAIS GERAIS","","","","","","", fmtKm(t.km), t.h.toFixed(0)+"h", fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
+    const footRow = ["TOTAIS GERAIS","","","","","","", fmtKm(t.km), fmtHrMin(t.h), fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
 
     pdf.addPage("a4","landscape");
     let tableRenderedOk = false;
