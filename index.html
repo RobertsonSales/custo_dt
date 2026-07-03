@@ -174,7 +174,7 @@ html[data-theme="dark"]{--invert-icons:1}
 .cfg .suffix{font-size:12px;color:var(--muted);font-weight:600}
 
 /* KPI GRID */
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px}
 .kpi{background:var(--panel);border-radius:18px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s, background .25s, border-color .25s}
 .kpi:hover{transform:translateY(-2px)}
 .kpi .kpi-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
@@ -244,16 +244,26 @@ html[data-theme="dark"] .totals-row td.money{color:#e8ecf8}
 
 /* Quadro "Performance por técnico": colunas com largura proporcional fixa,
    para que a barra de totais tenha espaço suficiente para os números sem
-   quebrar linha nem espremer o rótulo — as demais tabelas não são afetadas. */
+   quebrar linha nem espremer o rótulo — as demais tabelas não são afetadas.
+   OBS.: são 8 colunas (a 8ª é "Atividades realizadas"); a soma das larguras
+   precisa contemplar todas, senão o table-layout:fixed colapsa a última
+   coluna para 0 e o flex-wrap dos badges explode a altura de cada linha,
+   fazendo cada técnico parecer "um por bloco". */
 .tech-perf-table{table-layout:fixed}
-.tech-perf-table th:nth-child(1), .tech-perf-table td:nth-child(1){width:19%}
-.tech-perf-table th:nth-child(2), .tech-perf-table td:nth-child(2){width:9%}
-.tech-perf-table th:nth-child(3), .tech-perf-table td:nth-child(3){width:11%}
-.tech-perf-table th:nth-child(4), .tech-perf-table td:nth-child(4){width:10%}
-.tech-perf-table th:nth-child(5), .tech-perf-table td:nth-child(5){width:13%}
-.tech-perf-table th:nth-child(6), .tech-perf-table td:nth-child(6){width:12%}
-.tech-perf-table th:nth-child(7), .tech-perf-table td:nth-child(7){width:26%}
-.tech-perf-table td:nth-child(-n+6){white-space:nowrap}
+.tech-perf-table th:nth-child(1), .tech-perf-table td:nth-child(1){width:18%}
+.tech-perf-table th:nth-child(2), .tech-perf-table td:nth-child(2){width:7%}
+.tech-perf-table th:nth-child(3), .tech-perf-table td:nth-child(3){width:9%}
+.tech-perf-table th:nth-child(4), .tech-perf-table td:nth-child(4){width:9%}
+.tech-perf-table th:nth-child(5), .tech-perf-table td:nth-child(5){width:9%}
+.tech-perf-table th:nth-child(6), .tech-perf-table td:nth-child(6){width:11%}
+.tech-perf-table th:nth-child(7), .tech-perf-table td:nth-child(7){width:10%}
+.tech-perf-table th:nth-child(8), .tech-perf-table td:nth-child(8){width:27%}
+/* A 1ª coluna (Técnico) tem overflow controlado para nomes longos como
+   "Rogério Ventura Ribeiro - Removido" — truncam com reticências em vez de
+   vazarem para a coluna seguinte de Tarefas. */
+.tech-perf-table td:nth-child(1){white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tech-perf-table td:nth-child(1) strong{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom}
+.tech-perf-table td:nth-child(n+2):nth-child(-n+7){white-space:nowrap}
 .tech-perf-table .totals-row td{padding:13px 10px!important;font-size:12.5px}
 .tech-perf-table .totals-row td.totals-label{font-size:11.5px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tech-perf-table .totals-row td.money.money-total{font-size:14px}
@@ -296,6 +306,105 @@ html[data-theme="dark"] .badge.bdg-period.pr{background:#14352a;color:#86efac}
 .overlay-card h4{font-size:15px;margin-bottom:4px}
 .overlay-card p{margin:0;font-size:13px;color:var(--text-soft)}
 .progress{margin-top:14px;height:6px;border-radius:999px;background:var(--border);overflow:hidden}
+
+/* ============================================================
+   BOTÃO "VER DETALHES" NA TABELA DE REGISTROS
+   ============================================================ */
+.btn-row-view{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--primary-soft);color:var(--primary);border:1px solid transparent;cursor:pointer;transition:all .18s ease;padding:0}
+.btn-row-view svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.btn-row-view:hover{background:var(--primary);color:#fff;transform:translateY(-1px);box-shadow:0 4px 12px rgba(79,70,229,.35)}
+html[data-theme="dark"] .btn-row-view{background:rgba(124,58,237,.15);color:#a5b4fc}
+html[data-theme="dark"] .btn-row-view:hover{background:var(--primary);color:#fff}
+
+/* ============================================================
+   MODAL DE DETALHES DO REGISTRO (professional record modal)
+   ============================================================ */
+.rec-modal{position:fixed;inset:0;z-index:10001;background:rgba(8,12,28,.72);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px;animation:recFadeIn .2s ease}
+.rec-modal.show{display:flex}
+@keyframes recFadeIn{from{opacity:0}to{opacity:1}}
+.rec-modal-wrap{width:100%;max-width:960px;max-height:calc(100vh - 40px);display:flex;flex-direction:column;background:var(--panel);border-radius:20px;overflow:hidden;box-shadow:0 25px 70px -12px rgba(0,0,0,.5);animation:recSlideIn .28s cubic-bezier(.16,1,.3,1)}
+@keyframes recSlideIn{from{transform:translateY(20px) scale(.98);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+.rec-modal-head{display:flex;justify-content:space-between;align-items:center;padding:18px 26px;background:linear-gradient(135deg,#1e1b4b 0%,#312e81 50%,#4338ca 100%);color:#fff;flex-shrink:0;gap:14px}
+.rec-modal-head .rec-head-title{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.rec-modal-head .rec-head-icon{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.rec-modal-head .rec-head-icon svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2}
+.rec-modal-head .rec-head-text{min-width:0}
+.rec-modal-head h3{color:#fff;font-size:15px;font-weight:700;margin:0;font-family:'Plus Jakarta Sans',sans-serif;letter-spacing:.2px}
+.rec-modal-head .rec-head-sub{font-size:12px;color:rgba(255,255,255,.75);margin-top:2px;font-weight:500}
+.rec-modal-head .rec-actions{display:flex;gap:8px;flex-shrink:0}
+.rec-modal-head .btn{background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.25);backdrop-filter:blur(4px)}
+.rec-modal-head .btn:hover{background:rgba(255,255,255,.25)}
+.rec-modal-head .btn.btn-primary{background:#fff;color:#312e81;border-color:#fff}
+.rec-modal-head .btn.btn-primary:hover{background:#ede9fe;color:#312e81}
+.rec-modal-body{flex:1;overflow:auto;padding:26px 28px;background:var(--panel-soft)}
+
+/* Grid layout do modal */
+.rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rec-grid-full{grid-column:1/-1}
+.rec-section{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.rec-section::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--primary),var(--primary-2))}
+.rec-section.sec-cost::before{background:linear-gradient(180deg,#dc2626,#f59e0b)}
+.rec-section.sec-route::before{background:linear-gradient(180deg,#06b6d4,#0891b2)}
+.rec-section.sec-time::before{background:linear-gradient(180deg,#10b981,#059669)}
+.rec-section-title{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text-soft);margin-bottom:14px;padding-left:6px}
+.rec-section-title svg{width:14px;height:14px;stroke:var(--primary);fill:none;stroke-width:2.2}
+.rec-section.sec-cost .rec-section-title svg{stroke:#dc2626}
+.rec-section.sec-route .rec-section-title svg{stroke:#06b6d4}
+.rec-section.sec-time .rec-section-title svg{stroke:#10b981}
+.rec-field{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px dashed var(--border)}
+.rec-field:last-child{border-bottom:none;padding-bottom:0}
+.rec-field:first-child{padding-top:0}
+.rec-field-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted)}
+.rec-field-value{font-size:14px;font-weight:600;color:var(--text);word-break:break-word;line-height:1.4}
+.rec-field-value.mono{font-variant-numeric:tabular-nums;font-family:'Inter',monospace;font-weight:700}
+.rec-field-value.money{color:var(--money-total);font-weight:800;font-size:15px}
+.rec-field-value.muted{color:var(--muted);font-weight:500;font-style:italic}
+
+/* KPI cards no modal (linha superior) */
+.rec-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.rec-kpi{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;position:relative;overflow:hidden}
+.rec-kpi::after{content:"";position:absolute;right:-20px;top:-20px;width:80px;height:80px;border-radius:50%;opacity:.08}
+.rec-kpi.k-total::after{background:#dc2626}
+.rec-kpi.k-km::after{background:#06b6d4}
+.rec-kpi.k-time::after{background:#10b981}
+.rec-kpi.k-base::after{background:#f59e0b}
+.rec-kpi .rec-kpi-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px}
+.rec-kpi .rec-kpi-val{font-size:20px;font-weight:800;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;line-height:1.1}
+.rec-kpi .rec-kpi-sub{font-size:11px;color:var(--text-soft);margin-top:3px;font-weight:500}
+.rec-kpi.k-total .rec-kpi-val{color:var(--money-total)}
+
+/* Badge de tipo dentro do modal */
+.rec-tipo-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:var(--badge-type-bg);color:var(--badge-type-fg);font-size:12px;font-weight:700}
+.rec-base-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:999px;background:var(--badge-period-bg);color:var(--badge-period-fg);font-size:12px;font-weight:700}
+.rec-base-badge.b-sulacap{background:var(--badge-period-dec-bg);color:var(--badge-period-dec-fg)}
+.rec-base-badge.b-curitiba{background:#dcfce7;color:#166534}
+
+/* Tabela de custos consolidada */
+.rec-costs-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.rec-costs-table tr td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.rec-costs-table tr:last-child td{border-bottom:none}
+.rec-costs-table tr.total-row td{background:linear-gradient(90deg,rgba(220,38,38,.06),rgba(220,38,38,.02));font-weight:800;border-top:2px solid var(--border-strong)}
+.rec-costs-table .lbl{color:var(--text-soft);font-weight:600}
+.rec-costs-table .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;color:var(--text)}
+.rec-costs-table .val.money{color:var(--money-total)}
+.rec-costs-table tr.total-row .val{color:var(--money-total);font-size:16px}
+
+/* Responsividade */
+@media (max-width: 720px){
+  .rec-modal{padding:0}
+  .rec-modal-wrap{max-height:100vh;height:100vh;border-radius:0}
+  .rec-grid{grid-template-columns:1fr}
+  .rec-kpi-row{grid-template-columns:repeat(2,1fr)}
+  .rec-modal-head{padding:14px 18px}
+  .rec-modal-body{padding:18px}
+  .rec-modal-head h3{font-size:14px}
+  .rec-modal-head .btn span.btn-lbl{display:none}
+}
+
+/* Tema escuro */
+html[data-theme="dark"] .rec-modal-wrap{background:#0a0e1c;color:#e5e7eb}
+html[data-theme="dark"] .rec-section, html[data-theme="dark"] .rec-kpi{background:#0f1530;border-color:rgba(255,255,255,.08)}
+html[data-theme="dark"] .rec-modal-body{background:#080b18}
 
 /* ============================================================
    MODAL DE PRÉ-VISUALIZAÇÃO DO PDF (independente do dashboard)
@@ -369,11 +478,11 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 .pdf-info-card.info-pr h4{color:#166534}
 
 /* Charts */
-.pdf-charts{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;margin-bottom:8px}
-.pdf-chart-box{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;display:flex;flex-direction:column}
+.pdf-charts{display:grid;grid-template-columns:1fr 1.55fr;gap:14px;margin-bottom:8px}
+.pdf-chart-box{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;display:flex;flex-direction:column;min-width:0}
 .pdf-chart-box h4{font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:8px}
-.pdf-chart-box .chart-img-wrap{flex:1;min-height:240px;display:flex;align-items:center;justify-content:center}
-.pdf-chart-box .chart-img-wrap img{max-width:100%;max-height:300px;display:block}
+.pdf-chart-box .chart-img-wrap{flex:1;min-height:300px;display:flex;align-items:center;justify-content:center}
+.pdf-chart-box .chart-img-wrap img{max-width:100%;max-height:360px;width:auto;height:auto;display:block}
 
 /* TABELAS */
 .pdf-table{width:100%;border-collapse:collapse;font-size:9.5px;background:#fff;border:1px solid #e6e9f2;border-radius:6px;overflow:hidden}
@@ -585,6 +694,11 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
       <div class="kpi-value" id="kpiTotalCost">R$ 0</div>
       <div class="kpi-sub" id="kpiTotalCostSub">Combustível + veículo + salário</div>
     </div>
+    <div class="kpi k6">
+      <div class="kpi-top"><span class="kpi-label">Duração total</span><div class="kpi-icon" style="background:linear-gradient(135deg,#8b5cf6,#6366f1)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div>
+      <div class="kpi-value" id="kpiDuracao">00:00:00</div>
+      <div class="kpi-sub" id="kpiDuracaoSub">Tempo total em diligência</div>
+    </div>
   </div>
 
   <!-- LAYOUT -->
@@ -679,6 +793,34 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 </div>
 
 <div class="toast-wrap" id="toastWrap"></div>
+
+<!-- MODAL DE DETALHES DO REGISTRO -->
+<div class="rec-modal" id="recModal" role="dialog" aria-modal="true" aria-labelledby="recModalTitle">
+  <div class="rec-modal-wrap">
+    <div class="rec-modal-head">
+      <div class="rec-head-title">
+        <div class="rec-head-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <div class="rec-head-text">
+          <h3 id="recModalTitle">Detalhes Completos da Tarefa</h3>
+          <div class="rec-head-sub" id="recHeadSub">—</div>
+        </div>
+      </div>
+      <div class="rec-actions">
+        <button class="btn" id="btnRecClose" title="Fechar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span class="btn-lbl">Fechar</span>
+        </button>
+        <button class="btn btn-primary" id="btnRecDownloadPDF" title="Gerar PDF profissional A4">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="btn-lbl">Baixar PDF</span>
+        </button>
+      </div>
+    </div>
+    <div class="rec-modal-body" id="recModalBody"></div>
+  </div>
+</div>
 
 <!-- MODAL DE PRÉ-VISUALIZAÇÃO DO PDF -->
 <div class="pdf-modal" id="pdfModal" role="dialog" aria-modal="true" aria-labelledby="pdfModalTitle">
@@ -1224,8 +1366,21 @@ async function geocodeAddresses(addresses, onProgress){
 }
 
 // ---------- UTILS ----------
-const $ = id => document.getElementById(id);
-const fmtBRL = v => "R$ " + (v||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
+  const $ = id => document.getElementById(id);
+  const timeToSeconds = t => {
+    if(!t) return 0;
+    const p = String(t).split(":");
+    if(p.length < 2) return 0;
+    if(p.length === 2) return (+p[0])*60 + (+p[1]);
+    return (+p[0])*3600 + (+p[1])*60 + (+p[2]);
+  };
+  const secondsToTime = s => {
+    const h = Math.floor(s/3600);
+    const m = Math.floor((s%3600)/60);
+    const sec = s%60;
+    return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(sec).padStart(2,"0")}`;
+  };
+  const fmtBRL = v => "R$ " + (v||0).toLocaleString("pt-BR",{minimumFractionDigits:2, maximumFractionDigits:2});
 const fmtBRLshort = v => {
   if (v >= 1e6) return "R$ " + (v/1e6).toFixed(2)+"M";
   if (v >= 1e3) return "R$ " + (v/1e3).toFixed(1)+"K";
@@ -1560,7 +1715,8 @@ function processWorkbook(wb){
       responsavel: String(r[4]||"").trim(),
       cliente: String(r[5]||"").trim(),
       endereco: String(r[6]||"").trim(),
-      baseRaw: String(r[7]||"").trim()
+      baseRaw: String(r[7]||"").trim(),
+      duracaoRaw: String(r[8]||"").trim()
     });
   }
 
@@ -1727,6 +1883,8 @@ function computeCosts(){
       distOneWayKm: distOneWay,
       hospedagem: hosp > 0,
       custoTotal: total,
+      duracao: r.duracaoRaw || "00:00:00",
+      duracaoSeg: timeToSeconds(r.duracaoRaw),
       dataFormat: dt ? dt.raw : (r.dataRaw||"")
     };
   });
@@ -1911,8 +2069,9 @@ function updateKPIs(){
     a.sal += r.custoSal;
     a.tot += r.custoTotal;
     a.hours += r.tempoH;
+    a.dur += (r.duracaoSeg || 0);
     return a;
-  }, {km:0,fuel:0,veic:0,sal:0,tot:0,hours:0});
+  }, {km:0,fuel:0,veic:0,sal:0,tot:0,hours:0,dur:0});
 
   $("kpiTotal").textContent = rows.length.toLocaleString("pt-BR");
   $("kpiTotalSub").textContent = rows.length === State.rows.length ? "Todos os registros" : `de ${State.rows.length.toLocaleString("pt-BR")} totais`;
@@ -1924,10 +2083,13 @@ function updateKPIs(){
   $("kpiHorasSub").textContent = "Média " + (rows.length? (totals.hours/rows.length).toFixed(2) : "0") + " h/tarefa";
   $("kpiTotalCost").textContent = fmtBRLshort(totals.tot);
   $("kpiTotalCostSub").textContent = fmtBRL(totals.tot);
+  $("kpiDuracao").textContent = secondsToTime(totals.dur);
+  $("kpiDuracaoSub").textContent = "Média " + (rows.length ? secondsToTime(Math.round(totals.dur/rows.length)) : "00:00:00") + "/tarefa";
 }
 
 // ---------- TABLE ----------
 const COLS = [
+  { key:"__actions", label:"", w:44, align:"center", isAction:true },
   { key:"codigo", label:"Código", w:90 },
   { key:"dataFormat", label:"Data", w:90 },
   { key:"tipo", label:"Tipo da tarefa", w:170 },
@@ -1936,6 +2098,7 @@ const COLS = [
   { key:"cidade", label:"Município/Local", w:170 },
   { key:"baseShort", label:"Base", w:80 },
   { key:"responsavel", label:"Técnico", w:140 },
+  { key:"duracao", label:"Duração", w:90, align:"right" },
   { key:"distKm", label:"Dist. (km)", w:90, align:"right", fmt:fmtKm },
   { key:"tempoH", label:"Tempo", w:100, align:"right", fmt:v=>fmtHrMin(v) },
   { key:"custoFuel", label:"Combustível", w:110, align:"right", fmt:fmtBRL, cls:"money" },
@@ -1973,6 +2136,10 @@ function renderTable(){
 
   let html = "<table><thead><tr>";
   COLS.forEach(c => {
+    if (c.isAction){
+      html += `<th style="min-width:${c.w}px;text-align:center" title="Ações"></th>`;
+      return;
+    }
     const sorted = State.sortKey === c.key ? "sorted" : "";
     const arrow = State.sortKey === c.key ? (State.sortDir===1?"▲":"▼") : "▲▼";
     html += `<th class="${sorted}" data-key="${c.key}" style="min-width:${c.w}px;text-align:${c.align||'left'}">${c.label}<span class="sort-ind">${arrow}</span></th>`;
@@ -1980,8 +2147,13 @@ function renderTable(){
   html += "</tr></thead><tbody>";
 
   showRows.forEach((r, i) => {
+    const rowIndex = State.filtered.indexOf(r);
     html += `<tr class="${i%2?'zebra':''}">`;
     COLS.forEach(c => {
+      if (c.isAction){
+        html += `<td style="text-align:center;padding:6px 4px"><button class="btn-row-view" data-view-row="${rowIndex}" title="Ver detalhes completos" aria-label="Ver detalhes"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></td>`;
+        return;
+      }
       let v = r[c.key];
       if (c.fmt) v = c.fmt(v);
       const align = c.align ? `text-align:${c.align}` : "";
@@ -2002,10 +2174,13 @@ function renderTable(){
   // Totalizadores no rodapé
   const totals = State.filtered.reduce((a,r)=>{
     a.km += r.distKm; a.h += r.tempoH; a.f += r.custoFuel;
-    a.v += r.custoVeic; a.s += r.custoSal; a.hp += r.custoHosp; a.t += r.custoTotal; return a;
-  }, {km:0,h:0,f:0,v:0,s:0,hp:0,t:0});
+    a.v += r.custoVeic; a.s += r.custoSal; a.hp += r.custoHosp; a.t += r.custoTotal; 
+    a.dur += (r.duracaoSeg || 0);
+    return a;
+  }, {km:0,h:0,f:0,v:0,s:0,hp:0,t:0,dur:0});
   html += `<tr class="totals-row">
-    <td colspan="7" class="totals-label" style="text-align:right">TOTAIS</td>
+    <td colspan="9" class="totals-label" style="text-align:right">TOTAIS</td>
+    <td style="text-align:right">${secondsToTime(totals.dur)}</td>
     <td style="text-align:right">${fmtKm(totals.km)}</td>
     <td style="text-align:right">${fmtHrMin(totals.h)}</td>
     <td style="text-align:right" class="money">${fmtBRL(totals.f)}</td>
@@ -2018,14 +2193,25 @@ function renderTable(){
 
   wrap.innerHTML = html;
 
-  // Header click sort
+  // Header click sort (ignora coluna de ações que não tem data-key)
   wrap.querySelectorAll("thead th").forEach(th => {
+    if (!th.dataset.key) return;
     th.addEventListener("click", () => {
       const k = th.dataset.key;
       if (State.sortKey === k) State.sortDir *= -1;
       else { State.sortKey = k; State.sortDir = 1; }
       sortFiltered();
       renderTable();
+    });
+  });
+
+  // Bind dos botões "Ver detalhes"
+  wrap.querySelectorAll("button[data-view-row]").forEach(btn => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      const idx = parseInt(btn.dataset.viewRow, 10);
+      const row = State.filtered[idx];
+      if (row) openRecordDetail(row);
     });
   });
 
@@ -2045,17 +2231,18 @@ function renderTechDashboard(){
   const map = {};
   rows.forEach(r => {
     const key = r.responsavel || "— não informado";
-    if (!map[key]) map[key] = { count:0, km:0, h:0, total:0, tipos:{} };
+    if (!map[key]) map[key] = { count:0, km:0, h:0, dur:0, total:0, tipos:{} };
     const m = map[key];
-    m.count++; m.km += r.distKm; m.h += r.tempoH; m.total += r.custoTotal;
+    m.count++; m.km += r.distKm; m.h += r.tempoH; m.dur += (r.duracaoSeg || 0); m.total += r.custoTotal;
     const tp = r.tipo || "—";
     m.tipos[tp] = (m.tipos[tp]||0) + 1;
   });
   const list = Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
-  const g = list.reduce((a,[,v])=>{a.count+=v.count;a.km+=v.km;a.h+=v.h;a.total+=v.total;return a;},{count:0,km:0,h:0,total:0});
+  const g = list.reduce((a,[,v])=>{a.count+=v.count;a.km+=v.km;a.h+=v.h;a.dur+=v.dur;a.total+=v.total;return a;},{count:0,km:0,h:0,dur:0,total:0});
   let html = `<table class="tech-perf-table"><thead><tr>
     <th style="min-width:180px">Técnico</th>
     <th style="text-align:right">Tarefas</th>
+    <th style="text-align:right">Duração</th>
     <th style="text-align:right">Distância</th>
     <th style="text-align:right">Horas</th>
     <th style="text-align:right">Custo total</th>
@@ -2068,6 +2255,7 @@ function renderTechDashboard(){
     html += `<tr class="${i%2?'zebra':''}">
       <td><strong>${name}</strong></td>
       <td style="text-align:right">${v.count.toLocaleString("pt-BR")}</td>
+      <td style="text-align:right">${secondsToTime(v.dur)}</td>
       <td style="text-align:right">${fmtKm(v.km)}</td>
       <td style="text-align:right">${fmtHrMin(v.h)}</td>
       <td style="text-align:right" class="money money-total">${fmtBRL(v.total)}</td>
@@ -2078,6 +2266,7 @@ function renderTechDashboard(){
   html += `<tr class="totals-row">
     <td class="totals-label" style="text-align:right">TOTAIS · ${list.length} técnico(s)</td>
     <td class="money" style="text-align:right">${g.count.toLocaleString("pt-BR")}</td>
+    <td class="money" style="text-align:right">${secondsToTime(g.dur)}</td>
     <td class="money" style="text-align:right">${fmtKm(g.km)}</td>
     <td class="money" style="text-align:right">${fmtHrMin(g.h)}</td>
     <td style="text-align:right" class="money money-total">${fmtBRL(g.total)}</td>
@@ -2294,9 +2483,9 @@ function renderCharts(){
 // ---------- EXPORT ----------
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)"];
+  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)"];
   const rows = State.filtered.map(r => [
-    r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel,
+    r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel, r.duracao,
     r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
     r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2)
   ]);
@@ -2332,15 +2521,20 @@ const PDF_ROWS_PER_PAGE = 28; // páginas seguintes (só tabela)
 
 function collectReportData(){
   const rows = State.filtered;
-  const totals = rows.reduce((a,r)=>{a.km+=r.distKm;a.h+=r.tempoH;a.f+=r.custoFuel;a.v+=r.custoVeic;a.s+=r.custoSal;a.hp+=r.custoHosp;a.t+=r.custoTotal;return a},{km:0,h:0,f:0,v:0,s:0,hp:0,t:0});
+  const totals = rows.reduce((a,r)=>{
+    a.km+=r.distKm;a.h+=r.tempoH;a.f+=r.custoFuel;a.v+=r.custoVeic;a.s+=r.custoSal;a.hp+=r.custoHosp;a.t+=r.custoTotal;
+    a.dur += (r.duracaoSeg || 0);
+    return a;
+  },{km:0,h:0,f:0,v:0,s:0,hp:0,t:0,dur:0});
   // Por base
   const byBase = {};
   rows.forEach(r => {
     const k = r.baseShort || "-";
-    if (!byBase[k]) byBase[k] = { count:0, km:0, h:0, total:0, key:r.baseKey };
+    if (!byBase[k]) byBase[k] = { count:0, km:0, h:0, dur:0, total:0, key:r.baseKey };
     byBase[k].count++;
     byBase[k].km += r.distKm;
     byBase[k].h += r.tempoH;
+    byBase[k].dur += (r.duracaoSeg || 0);
     byBase[k].total += r.custoTotal;
   });
   // Por estado (RJ / PR / outros)
@@ -2355,10 +2549,11 @@ function collectReportData(){
   const byClient = {};
   rows.forEach(r => {
     if (!r.unidadeKey) return;
-    if (!byClient[r.unidadeKey]) byClient[r.unidadeKey] = { count:0, total:0, km:0, label:r.unidadeLabel || r.cliente, cliente:r.cliente, endereco:r.endereco||"" };
+    if (!byClient[r.unidadeKey]) byClient[r.unidadeKey] = { count:0, total:0, km:0, dur:0, label:r.unidadeLabel || r.cliente, cliente:r.cliente, endereco:r.endereco||"" };
     byClient[r.unidadeKey].count++;
     byClient[r.unidadeKey].total += r.custoTotal;
     byClient[r.unidadeKey].km += r.distKm;
+    byClient[r.unidadeKey].dur += (r.duracaoSeg || 0);
   });
   const topClients = Object.entries(byClient).sort((a,b)=>b[1].total-a[1].total).slice(0,10);
   // Por mês
@@ -2366,10 +2561,11 @@ function collectReportData(){
   rows.forEach(r => {
     if (!r.ano || !r.mes) return;
     const k = `${r.ano}-${String(r.mes).padStart(2,"0")}`;
-    if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0 };
+    if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0, dur:0 };
     byMonth[k].count++;
     byMonth[k].total += r.custoTotal;
     byMonth[k].km += r.distKm;
+    byMonth[k].dur += (r.duracaoSeg || 0);
   });
   return { rows, totals, byBase, byUF, topClients, byMonth };
 }
@@ -2457,6 +2653,7 @@ function buildSummaryPage(data, pageNum, totalPages){
     <div class="pdf-kpis">
       <div class="pdf-kpi k1"><div><div class="lbl">Tarefas</div><div class="val">${n.toLocaleString("pt-BR")}</div></div><div class="sub">Registros considerados</div></div>
       <div class="pdf-kpi k2"><div><div class="lbl">Distância total</div><div class="val">${fmtKm(t.km)}</div></div><div class="sub">Média ${avgKm.toFixed(1)} km/tarefa</div></div>
+      <div class="pdf-kpi k3"><div><div class="lbl">Duração total</div><div class="val">${secondsToTime(t.dur)}</div></div><div class="sub">Média ${secondsToTime(Math.round(t.dur/(n||1)))}/tarefa</div></div>
       <div class="pdf-kpi k3"><div><div class="lbl">Horas em desloc.</div><div class="val">${fmtHrMin(t.h)}</div></div><div class="sub">Média ${fmtHrMin(avgH)}/tarefa</div></div>
       <div class="pdf-kpi k4"><div><div class="lbl">Combustível</div><div class="val">${fmtBRL(t.f)}</div></div><div class="sub">${((t.f/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
       <div class="pdf-kpi k5"><div><div class="lbl">Veículo (rateio)</div><div class="val">${fmtBRL(t.v)}</div></div><div class="sub">${((t.v/(t.t||1))*100).toFixed(1)}% do custo total</div></div>
@@ -2566,6 +2763,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
         <td>${r.cidade || ""}</td>
         <td>${r.baseShort || ""}</td>
         <td>${(r.responsavel || "").substring(0,20)}</td>
+        <td>${r.duracao || "00:00:00"}</td>
         <td class="num">${r.distKm.toFixed(0)} km</td>
         <td class="num">${fmtHrMin(r.tempoH)}</td>
         <td class="num">${fmtBRL(r.custoFuel)}</td>
@@ -2577,6 +2775,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
     const footRow = isLast ? `
       <tfoot><tr>
         <td colspan="7">TOTAIS GERAIS · ${rows.length.toLocaleString("pt-BR")} registro(s)</td>
+        <td>${secondsToTime(t.dur)}</td>
         <td class="num">${fmtKm(t.km)}</td>
         <td class="num">${fmtHrMin(t.h)}</td>
         <td class="num">${fmtBRL(t.f)}</td>
@@ -2593,7 +2792,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
         <table class="pdf-table">
           <thead><tr>
             <th>Cód.</th><th>Data</th><th>Tipo</th><th>Cliente / Unidade</th><th>Município</th>
-            <th>Base</th><th>Técnico</th><th style="text-align:right">Km</th><th style="text-align:right">Tempo</th>
+            <th>Base</th><th>Técnico</th><th>Duração</th><th style="text-align:right">Km</th><th style="text-align:right">Tempo</th>
             <th style="text-align:right">Combust.</th><th style="text-align:right">Veículo</th>
             <th style="text-align:right">Salário</th><th style="text-align:right">Hosped.</th><th style="text-align:right">Total</th>
           </tr></thead>
@@ -2748,7 +2947,12 @@ function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTa
 /* Renderiza chart em canvas oculto e retorna dataURL (alta resolução, fundo branco) */
 function renderChartToImage(type, data){
   return new Promise((resolve) => {
-    const w = 900, h = 460;
+    // Gráfico horizontal (Top Clientes) precisa de mais largura para os
+    // rótulos de cliente e mais altura para acomodar 8 barras com folga.
+    // O gráfico vertical mensal mantém proporção original.
+    const isHBar = (type === "hbar");
+    const w = isHBar ? 1200 : 900;
+    const h = isHBar ? 620 : 460;
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     canvas.style.cssText = "position:absolute;left:-9999px;top:-9999px";
@@ -2788,15 +2992,21 @@ function renderChartToImage(type, data){
         datasets:[{
           data:data.values,
           backgroundColor:data.labels.map((_,i)=>colorBars[i%colorBars.length]),
-          borderRadius:6
+          borderRadius:6,
+          barPercentage:0.78,
+          categoryPercentage:0.86
         }]
       },
       options:{
         indexAxis:"y", responsive:false, animation:false, devicePixelRatio:2,
+        // Reserva ~460px à esquerda para os nomes de clientes (nomes de
+        // unidades hospitalares são longos) e folga à direita para o eixo
+        // de valores — evita rótulos truncados/ilegíveis no PDF.
+        layout:{padding:{left:8, right:28, top:8, bottom:8}},
         plugins:{legend:{display:false}, tooltip:{enabled:false}},
         scales:{
-          x:{ticks:{callback:v=>fmtBRLshort(v),font:{size:12},color:"#4a5578"},grid:{color:"#eef0f7"}},
-          y:{ticks:{font:{size:11},color:"#4a5578"},grid:{display:false}}
+          x:{ticks:{callback:v=>fmtBRLshort(v),font:{size:14},color:"#4a5578"},grid:{color:"#eef0f7"}},
+          y:{ticks:{font:{size:13, weight:"600"},color:"#1a1f3a",autoSkip:false,crossAlign:"far"},grid:{display:false},afterFit:(axis)=>{axis.width=460;}}
         }
       }
     };
@@ -2824,7 +3034,9 @@ async function buildChartImages(data){
   // Top clientes
   if (data.topClients.length){
     result.cli = await renderChartToImage("hbar", {
-      labels: data.topClients.slice(0,8).map(([,v]) => { const l = v.label || v.cliente || ""; return l.length>40?l.slice(0,40)+"…":l; }),
+      // Rendemos em canvas mais largo (1200px) reservando 360px para os
+      // rótulos — podemos exibir nomes maiores sem truncar drasticamente.
+      labels: data.topClients.slice(0,8).map(([,v]) => { const l = v.label || v.cliente || ""; return l.length>56?l.slice(0,56)+"…":l; }),
       values: data.topClients.slice(0,8).map(([,v]) => v.total)
     });
   }
@@ -2920,15 +3132,16 @@ async function downloadPdfFromPreview(){
     //    lista de registros NUNCA seja omitida do PDF final.
     $("overlayText").textContent = "Gerando tabela detalhada...";
     const data = State.reportData; const t = data.totals;
-    const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Km","Tempo","Combust.","Veículo","Salário","Hosped.","Total"];
+    const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Duração","Km","Tempo","Combust.","Veículo","Salário","Hosped.","Total"];
     const body = data.rows.map(r => [
       r.codigo || "", r.dataFormat || "", (r.tipo || "").substring(0,22),
       (r.cliente || "").substring(0,42), (r.cidade || ""), r.baseShort || "",
       (r.responsavel || "").substring(0,18),
+      r.duracao || "00:00:00",
       r.distKm.toFixed(0), fmtHrMin(r.tempoH),
       fmtBRL(r.custoFuel), fmtBRL(r.custoVeic), fmtBRL(r.custoSal), fmtBRL(r.custoHosp), fmtBRL(r.custoTotal)
     ]);
-    const footRow = ["TOTAIS GERAIS","","","","","","", fmtKm(t.km), fmtHrMin(t.h), fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
+    const footRow = ["TOTAIS GERAIS","","","","","","", secondsToTime(t.dur), fmtKm(t.km), fmtHrMin(t.h), fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
 
     pdf.addPage("a4","landscape");
     let tableRenderedOk = false;
@@ -2945,11 +3158,11 @@ async function downloadPdfFromPreview(){
           footStyles: { fillColor: [30,27,75], textColor: 255, fontStyle: "bold", fontSize: 5.8 },
           alternateRowStyles: { fillColor: [250,251,255] },
           columnStyles: {
-            3:{cellWidth:38},
-            7:{halign:"right",cellWidth:11}, 8:{halign:"right",cellWidth:12},
-            9:{halign:"right",cellWidth:18}, 10:{halign:"right",cellWidth:18},
-            11:{halign:"right",cellWidth:18}, 12:{halign:"right",cellWidth:16},
-            13:{halign:"right",cellWidth:19,textColor:[220,38,38],fontStyle:"bold"}
+            3:{cellWidth:36},
+            7:{cellWidth:12}, 8:{halign:"right",cellWidth:11}, 9:{halign:"right",cellWidth:12},
+            10:{halign:"right",cellWidth:18}, 11:{halign:"right",cellWidth:18},
+            12:{halign:"right",cellWidth:18}, 13:{halign:"right",cellWidth:16},
+            14:{halign:"right",cellWidth:19,textColor:[220,38,38],fontStyle:"bold"}
           },
           didDrawPage: () => {
             pdf.setFontSize(11); pdf.setTextColor(30,27,75);
@@ -3051,8 +3264,18 @@ function bindEvents(){
   $("btnExportPDF").addEventListener("click", openPdfPreview);
   $("btnPdfClose").addEventListener("click", closePdfPreview);
   $("btnPdfDownload").addEventListener("click", downloadPdfFromPreview);
+  // Novo modal de detalhes do registro
+  $("btnRecClose").addEventListener("click", closeRecordDetail);
+  $("btnRecDownloadPDF").addEventListener("click", downloadRecordPDF);
+  $("recModal").addEventListener("click", (e) => {
+    // Fecha se clicou fora do wrap (no fundo escurecido)
+    if (e.target === $("recModal")) closeRecordDetail();
+  });
   document.addEventListener("keydown", e => {
-    if (e.key === "Escape" && $("pdfModal").classList.contains("show")) closePdfPreview();
+    if (e.key === "Escape"){
+      if ($("recModal").classList.contains("show")) { closeRecordDetail(); return; }
+      if ($("pdfModal").classList.contains("show")) closePdfPreview();
+    }
   });
   $("btnTheme").addEventListener("click", toggleTheme);
   ["fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => MS.init(id, { onChange: applyFilters }));
@@ -3071,6 +3294,506 @@ function bindEvents(){
       }
     });
   });
+}
+
+// ============================================================
+// MODAL DE DETALHES DO REGISTRO — abre modal profissional com
+// TODAS as informações da tarefa + geração de PDF A4 horizontal
+// ============================================================
+function openRecordDetail(r){
+  const modal = $("recModal");
+  const body = $("recModalBody");
+  const sub = $("recHeadSub");
+
+  // Cabeçalho — código + tipo curto
+  sub.textContent = `Código ${r.codigo || "—"} · ${r.tipo || "—"}`;
+
+  const baseKeyClass = r.baseKey === "sulacap" ? "b-sulacap"
+                     : r.baseKey === "curitiba" ? "b-curitiba" : "";
+
+  const hasCusto = (r.custoTotal || 0) > 0;
+  const semCustoMotivo = (() => {
+    if (hasCusto) return null;
+    if (/REMOTO/i.test(r.tipo || "")) return "Atendimento remoto — sem deslocamento físico.";
+    if (/BANCADA/i.test(r.tipo || "")) return "Manutenção em bancada — realizada na base do técnico.";
+    if (/ATENDIMENTO\s+INTERNO/i.test(r.tipo || "")) return "Atendimento interno — realizado na própria base.";
+    if (/LABMEDIC/i.test(r.cliente || "")) return "Cliente LABMEDIC — atividade interna, sem deslocamento.";
+    if ((r.distKm || 0) < 0.01) return "Unidade atendida coincide com a base operacional.";
+    return "Sem custo aplicável.";
+  })();
+
+  const distOneWay = r.distOneWayKm || (r.distKm ? r.distKm / 2 : 0);
+
+  body.innerHTML = `
+    <!-- KPIs -->
+    <div class="rec-kpi-row">
+      <div class="rec-kpi k-total">
+        <div class="rec-kpi-lbl">Custo Total</div>
+        <div class="rec-kpi-val">${fmtBRL(r.custoTotal)}</div>
+        <div class="rec-kpi-sub">${hasCusto ? "Consolidado da tarefa" : "Sem custo aplicável"}</div>
+      </div>
+      <div class="rec-kpi k-km">
+        <div class="rec-kpi-lbl">Distância</div>
+        <div class="rec-kpi-val">${fmtKm(r.distKm)}</div>
+        <div class="rec-kpi-sub">Ida + volta (rodoviária estimada)</div>
+      </div>
+      <div class="rec-kpi k-time">
+        <div class="rec-kpi-lbl">Tempo de Deslocamento</div>
+        <div class="rec-kpi-val">${fmtHrMin(r.tempoH)}</div>
+        <div class="rec-kpi-sub">A 70 km/h médios</div>
+      </div>
+      <div class="rec-kpi k-base">
+        <div class="rec-kpi-lbl">Base Operacional</div>
+        <div class="rec-kpi-val" style="font-size:16px">${r.baseShort || "—"}</div>
+        <div class="rec-kpi-sub">${r.base || "—"}</div>
+      </div>
+    </div>
+
+    <!-- Grid principal -->
+    <div class="rec-grid">
+      <!-- IDENTIFICAÇÃO -->
+      <div class="rec-section">
+        <div class="rec-section-title">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          Identificação da Tarefa
+        </div>
+        <div class="rec-field"><span class="rec-field-label">Código</span><span class="rec-field-value mono">${escapeHtml(r.codigo) || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Data</span><span class="rec-field-value">${escapeHtml(r.dataFormat) || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Tipo de Tarefa</span><span class="rec-field-value"><span class="rec-tipo-badge">${escapeHtml(r.tipo) || "—"}</span></span></div>
+        <div class="rec-field"><span class="rec-field-label">Tarefa De</span><span class="rec-field-value">${escapeHtml(r.tarefaDe) || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Técnico Responsável</span><span class="rec-field-value">${escapeHtml(r.responsavel) || "—"}</span></div>
+      </div>
+
+      <!-- CLIENTE / LOCAL -->
+      <div class="rec-section sec-route">
+        <div class="rec-section-title">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Cliente e Local de Atendimento
+        </div>
+        <div class="rec-field"><span class="rec-field-label">Cliente (Unidade)</span><span class="rec-field-value">${escapeHtml(r.cliente) || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Endereço</span><span class="rec-field-value">${escapeHtml(r.endereco) || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Município/Local</span><span class="rec-field-value">${escapeHtml(r.cidade) || "—"}</span></div>
+      </div>
+
+      <!-- BASE OPERACIONAL -->
+      <div class="rec-section">
+        <div class="rec-section-title">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Base Operacional
+        </div>
+        <div class="rec-field"><span class="rec-field-label">Base</span><span class="rec-field-value"><span class="rec-base-badge ${baseKeyClass}">${escapeHtml(r.baseShort) || "—"}</span></span></div>
+        <div class="rec-field"><span class="rec-field-label">Endereço da Base</span><span class="rec-field-value">${escapeHtml((BASES[r.baseKey]||{}).address || r.base || "") || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Base Registrada na Planilha</span><span class="rec-field-value muted">${escapeHtml(r.baseRaw) || "—"}</span></div>
+      </div>
+
+      <!-- TEMPO E DESLOCAMENTO -->
+      <div class="rec-section sec-time">
+        <div class="rec-section-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Tempo e Deslocamento
+        </div>
+        <div class="rec-field"><span class="rec-field-label">Duração da Tarefa (execução)</span><span class="rec-field-value mono">${escapeHtml(r.duracao) || "00:00:00"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Distância (só ida)</span><span class="rec-field-value mono">${fmtKm(distOneWay)}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Distância Total (ida + volta)</span><span class="rec-field-value mono">${fmtKm(r.distKm)}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Tempo de Deslocamento Estimado</span><span class="rec-field-value mono">${fmtHrMin(r.tempoH)}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Necessita Hospedagem</span><span class="rec-field-value">${r.hospedagem ? "Sim — trajeto acima de 300 km só ida" : "Não"}</span></div>
+      </div>
+
+      <!-- DETALHAMENTO DE CUSTOS -->
+      <div class="rec-section sec-cost rec-grid-full">
+        <div class="rec-section-title">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          Detalhamento de Custos
+        </div>
+        <table class="rec-costs-table">
+          <tr><td class="lbl">Combustível</td><td class="val money">${fmtBRL(r.custoFuel)}</td></tr>
+          <tr><td class="lbl">Veículo (Rateio proporcional)</td><td class="val money">${fmtBRL(r.custoVeic)}</td></tr>
+          <tr><td class="lbl">Salário (Rateio proporcional)</td><td class="val money">${fmtBRL(r.custoSal)}</td></tr>
+          <tr><td class="lbl">Hospedagem</td><td class="val money">${fmtBRL(r.custoHosp)}</td></tr>
+          <tr class="total-row"><td class="lbl">CUSTO TOTAL CONSOLIDADO</td><td class="val money">${fmtBRL(r.custoTotal)}</td></tr>
+        </table>
+        ${semCustoMotivo ? `<div style="margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border-left:3px solid #10b981;border-radius:8px;font-size:12.5px;color:var(--text-soft);line-height:1.5"><strong style="color:#059669">Observação:</strong> ${escapeHtml(semCustoMotivo)}</div>` : ""}
+      </div>
+    </div>
+  `;
+
+  // Guarda referência ao registro atual para o botão de PDF
+  State.currentDetailRow = r;
+  modal.classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+
+function closeRecordDetail(){
+  const modal = $("recModal");
+  modal.classList.remove("show");
+  document.body.style.overflow = "";
+  State.currentDetailRow = null;
+}
+
+// escape básico para inserção segura no HTML do modal
+function escapeHtml(v){
+  if (v === null || v === undefined) return "";
+  return String(v)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// ============================================================
+// GERAÇÃO DO PDF PROFISSIONAL — A4 HORIZONTAL (single record)
+// Usa jsPDF já carregado no <head>. Layout em duas colunas para
+// aproveitar a largura da página A4 paisagem (297x210mm), com
+// header colorido, KPIs, seções com títulos, tabela de custos e rodapé.
+// ============================================================
+function downloadRecordPDF(){
+  const r = State.currentDetailRow;
+  if (!r){ toast("Nenhum registro selecionado.", "warn"); return; }
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit:"mm", format:"a4", orientation:"landscape" });
+    const pageW = pdf.internal.pageSize.getWidth();   // 297mm
+    const pageH = pdf.internal.pageSize.getHeight();  // 210mm
+    const margin = 14;
+    let y = 0;
+    const distOneWay = r.distOneWayKm || (r.distKm ? r.distKm / 2 : 0);
+    const hasCusto = (r.custoTotal || 0) > 0;
+    const semCustoMotivo = (() => {
+      if (hasCusto) return null;
+      if (/REMOTO/i.test(r.tipo || "")) return "Atendimento remoto — sem deslocamento físico.";
+      if (/BANCADA/i.test(r.tipo || "")) return "Manutenção em bancada — realizada na base do técnico.";
+      if (/ATENDIMENTO\s+INTERNO/i.test(r.tipo || "")) return "Atendimento interno — realizado na própria base.";
+      if (/LABMEDIC/i.test(r.cliente || "")) return "Cliente LABMEDIC — atividade interna, sem deslocamento.";
+      if ((r.distKm || 0) < 0.01) return "Unidade atendida coincide com a base operacional.";
+      return "Sem custo aplicável.";
+    })();
+
+    // ==================== HEADER ====================
+    // Faixa gradiente simulada com dois retângulos sobrepostos
+    pdf.setFillColor(30, 27, 75);  // #1e1b4b
+    pdf.rect(0, 0, pageW, 26, "F");
+    pdf.setFillColor(49, 46, 129); // #312e81
+    pdf.rect(0, 18, pageW, 8, "F");
+
+    // Barra colorida decorativa
+    pdf.setFillColor(6, 182, 212); // accent
+    pdf.rect(0, 26, pageW, 1.3, "F");
+
+    // Título principal
+    pdf.setFont("helvetica", "bold");
+    pdf.setTextColor(255,255,255);
+    pdf.setFontSize(14);
+    pdf.text("GRUPO LABMEDIC — Diligências Técnicas", margin, 11);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.setTextColor(220, 214, 253);
+    pdf.text("Relatório Detalhado de Tarefa · Avaliação de Custos em Deslocamento", margin, 17);
+
+    // Bloco de código no canto direito
+    pdf.setFillColor(255,255,255);
+    pdf.roundedRect(pageW - margin - 55, 5, 55, 16, 3, 3, "F");
+    pdf.setTextColor(107, 114, 128);
+    pdf.setFontSize(7);
+    pdf.setFont("helvetica","bold");
+    pdf.text("CÓDIGO DA TAREFA", pageW - margin - 52, 10.5);
+    pdf.setTextColor(49, 46, 129);
+    pdf.setFontSize(12);
+    pdf.text(String(r.codigo || "—"), pageW - margin - 52, 17.5);
+
+    y = 34;
+
+    // ==================== METADADOS ====================
+    pdf.setTextColor(74, 85, 120);
+    pdf.setFontSize(8.5);
+    pdf.setFont("helvetica","normal");
+    const gerado = new Date().toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" });
+    pdf.text(`Documento gerado em ${gerado}`, margin, y);
+    pdf.text(`Base: ${r.baseShort || "—"}  ·  Data da tarefa: ${r.dataFormat || "—"}`, pageW - margin, y, { align:"right" });
+    y += 6;
+
+    // ==================== KPI CARDS ====================
+    const kpiW = (pageW - margin*2 - 15) / 5;
+    const kpiH = 21;
+    const kpis = [
+      { lbl:"Custo Total",    val: fmtBRL(r.custoTotal),  color:[220, 38, 38] },
+      { lbl:"Distância Total",val: fmtKm(r.distKm),       color:[6, 182, 212] },
+      { lbl:"Tempo Desloc.",  val: fmtHrMin(r.tempoH),    color:[16, 185, 129] },
+      { lbl:"Base",           val: r.baseShort || "—",    color:[245, 158, 11] },
+      { lbl:"Tipo de Tarefa", val: r.tipo || "—",         color:[124, 58, 237] }
+    ];
+    // Ajusta automaticamente o tamanho da fonte do valor (e permite até 2 linhas)
+    // para que textos mais longos, como o Tipo de Tarefa, não sejam cortados.
+    function fitKpiValue(text, maxWidth){
+      let fontSize = 10;
+      let lines = [String(text)];
+      while (fontSize > 6.5){
+        pdf.setFont("helvetica","bold");
+        pdf.setFontSize(fontSize);
+        lines = pdf.splitTextToSize(String(text), maxWidth);
+        if (lines.length <= 2) break;
+        fontSize -= 0.5;
+      }
+      return { fontSize, lines: lines.slice(0, 2) };
+    }
+    kpis.forEach((k, i) => {
+      const x = margin + i*(kpiW + 3.75);
+      pdf.setFillColor(249, 250, 252);
+      pdf.roundedRect(x, y, kpiW, kpiH, 2, 2, "F");
+      // Barra colorida à esquerda
+      pdf.setFillColor(k.color[0], k.color[1], k.color[2]);
+      pdf.rect(x, y, 1.3, kpiH, "F");
+      // Label
+      pdf.setTextColor(107, 114, 128);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(6.5);
+      pdf.text(k.lbl.toUpperCase(), x + 4, y + 5.5);
+      // Valor (fonte adaptativa, com quebra em até 2 linhas se necessário)
+      pdf.setTextColor(15, 23, 48);
+      const { fontSize, lines } = fitKpiValue(k.val, kpiW - 6);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(fontSize);
+      const startY = lines.length > 1 ? (y + 11.5) : (y + 13.5);
+      pdf.text(lines, x + 4, startY, { lineHeightFactor: 1.15 });
+    });
+    y += kpiH + 7;
+
+    const bodyTop = y; // referência do topo do corpo em duas colunas
+    const colGap = 10;
+    const colW = (pageW - margin*2 - colGap) / 2;
+    const xL = margin;
+    const xR = margin + colW + colGap;
+    let yL = bodyTop;
+    let yR = bodyTop;
+
+    // ==================== HELPERS (com suporte a coluna) ====================
+    function ensureRoom(need, colX, colWidth, curY){
+      if (curY + need > pageH - 16) {
+        newPageContinuation();
+        return bodyTopAfterBreak;
+      }
+      return curY;
+    }
+
+    let bodyTopAfterBreak = margin + 6;
+
+    function newPageContinuation(){
+      drawFooter();
+      pdf.addPage("a4","landscape");
+      // Header simplificado nas páginas de continuação
+      pdf.setFillColor(30, 27, 75);
+      pdf.rect(0, 0, pageW, 11, "F");
+      pdf.setTextColor(255,255,255);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(9);
+      pdf.text("GRUPO LABMEDIC — Relatório Detalhado de Tarefa (continuação)", margin, 7.3);
+      pdf.setFontSize(8);
+      pdf.text(`Código ${r.codigo || "—"}`, pageW - margin, 7.3, { align:"right" });
+      yL = bodyTopAfterBreak;
+      yR = bodyTopAfterBreak;
+    }
+
+    function drawSectionTitle(x, w, curY, title, color){
+      curY = ensureRoom(11, x, w, curY);
+      pdf.setFillColor(color[0], color[1], color[2]);
+      pdf.rect(x, curY, 2.6, 5.4, "F");
+      pdf.setTextColor(15, 23, 48);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(9.5);
+      pdf.text(title.toUpperCase(), x + 5.5, curY + 4.2);
+      pdf.setDrawColor(230, 233, 242);
+      pdf.setLineWidth(0.3);
+      pdf.line(x, curY + 7, x + w, curY + 7);
+      return curY + 10;
+    }
+
+    function drawKV(x, w, curY, label, value, opts={}){
+      curY = ensureRoom(13, x, w, curY);
+      pdf.setTextColor(138, 147, 178);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(6.8);
+      pdf.text(String(label).toUpperCase(), x, curY);
+      pdf.setTextColor(15, 23, 48);
+      pdf.setFont("helvetica", opts.strong ? "bold" : "normal");
+      pdf.setFontSize(opts.strong ? 9.5 : 9);
+      const val = String(value || "—");
+      const lines = pdf.splitTextToSize(val, w);
+      pdf.text(lines, x, curY + 3.8);
+      return curY + 3.8 + lines.length * 4 + 2.6;
+    }
+
+    // ==================== COLUNA ESQUERDA ====================
+    yL = drawSectionTitle(xL, colW, yL, "Identificação da Tarefa", [79, 70, 229]);
+    yL = drawKV(xL, colW, yL, "Código", r.codigo, { strong:true });
+    yL = drawKV(xL, colW, yL, "Data", r.dataFormat);
+    yL = drawKV(xL, colW, yL, "Tipo de Tarefa", r.tipo);
+    yL = drawKV(xL, colW, yL, "Tarefa De", r.tarefaDe);
+    yL = drawKV(xL, colW, yL, "Técnico Responsável", r.responsavel);
+    yL += 2;
+
+    yL = drawSectionTitle(xL, colW, yL, "Cliente e Local de Atendimento", [6, 182, 212]);
+    yL = drawKV(xL, colW, yL, "Cliente (Unidade)", r.cliente, { strong:true });
+    yL = drawKV(xL, colW, yL, "Endereço", r.endereco);
+    yL = drawKV(xL, colW, yL, "Município / Local", r.cidade);
+    yL += 2;
+
+    // ==================== COLUNA DIREITA ====================
+    yR = drawSectionTitle(xR, colW, yR, "Base Operacional", [245, 158, 11]);
+    yR = drawKV(xR, colW, yR, "Base", r.baseShort);
+    yR = drawKV(xR, colW, yR, "Nome Completo da Base", r.base);
+    yR = drawKV(xR, colW, yR, "Endereço da Base", (BASES[r.baseKey]||{}).address || "—");
+    yR = drawKV(xR, colW, yR, "Base Registrada na Planilha", r.baseRaw || "—");
+    yR += 2;
+
+    yR = drawSectionTitle(xR, colW, yR, "Tempo e Deslocamento", [16, 185, 129]);
+    yR = drawKV(xR, colW, yR, "Duração da Tarefa (execução)", r.duracao || "00:00:00");
+    yR = drawKV(xR, colW/2 - 2, yR, "Distância só ida", fmtKm(distOneWay));
+    // segunda métrica na mesma linha (usa a metade direita da coluna)
+    pdf.setTextColor(138, 147, 178);
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(6.8);
+    const yRlineBack = yR - (3.8 + 1*4 + 2.6); // volta para a linha anterior
+    pdf.text("DISTÂNCIA TOTAL (IDA + VOLTA)", xR + colW/2 + 2, yRlineBack);
+    pdf.setTextColor(15, 23, 48);
+    pdf.setFont("helvetica","normal");
+    pdf.setFontSize(9);
+    pdf.text(fmtKm(r.distKm), xR + colW/2 + 2, yRlineBack + 3.8);
+    yR = drawKV(xR, colW, yR, "Tempo de Deslocamento Estimado", fmtHrMin(r.tempoH));
+    yR = drawKV(xR, colW, yR, "Necessita Hospedagem", r.hospedagem ? "Sim (trajeto acima de 300 km só ida)" : "Não");
+    yR += 2;
+
+    // ==================== DETALHAMENTO DE CUSTOS (largura total) ====================
+    y = Math.max(yL, yR);
+    if (y > pageH - 60) { newPageContinuation(); y = Math.max(yL, yR); }
+    y = drawSectionTitle(margin, pageW - margin*2, y, "Detalhamento de Custos", [220, 38, 38]);
+
+    // Tabela em duas colunas de componentes lado a lado para otimizar espaço horizontal
+    const rows = [
+      ["Combustível", fmtBRL(r.custoFuel)],
+      ["Veículo (Rateio proporcional)", fmtBRL(r.custoVeic)],
+      ["Salário (Rateio proporcional)", fmtBRL(r.custoSal)],
+      ["Hospedagem", fmtBRL(r.custoHosp)]
+    ];
+    const tableW = pageW - margin*2;
+    const rowH = 7.5;
+    // Cabeçalho da tabela
+    pdf.setFillColor(244, 246, 252);
+    pdf.rect(margin, y, tableW, rowH, "F");
+    pdf.setTextColor(74, 85, 120);
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(7.5);
+    pdf.text("COMPONENTE DE CUSTO", margin + 3, y + 5);
+    pdf.text("VALOR (R$)", margin + tableW*0.42, y + 5, { align:"right" });
+    pdf.text("COMPONENTE DE CUSTO", margin + tableW*0.55, y + 5);
+    pdf.text("VALOR (R$)", pageW - margin - 3, y + 5, { align:"right" });
+    y += rowH;
+    // Duas colunas de linhas (2 itens por linha)
+    for (let i = 0; i < rows.length; i += 2){
+      if ((i/2) % 2) {
+        pdf.setFillColor(252, 252, 255);
+        pdf.rect(margin, y, tableW, rowH, "F");
+      }
+      const left = rows[i];
+      const right = rows[i+1];
+      pdf.setTextColor(15, 23, 48);
+      pdf.setFont("helvetica","normal");
+      pdf.setFontSize(9);
+      pdf.text(left[0], margin + 3, y + 5);
+      pdf.setFont("helvetica","bold");
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(left[1], margin + tableW*0.42, y + 5, { align:"right" });
+      if (right){
+        pdf.setTextColor(15, 23, 48);
+        pdf.setFont("helvetica","normal");
+        pdf.text(right[0], margin + tableW*0.55, y + 5);
+        pdf.setFont("helvetica","bold");
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(right[1], pageW - margin - 3, y + 5, { align:"right" });
+      }
+      y += rowH;
+    }
+    // Linha total
+    pdf.setFillColor(254, 226, 226);
+    pdf.rect(margin, y, tableW, rowH + 2, "F");
+    pdf.setDrawColor(220, 38, 38);
+    pdf.setLineWidth(0.5);
+    pdf.line(margin, y, pageW - margin, y);
+    pdf.setTextColor(127, 29, 29);
+    pdf.setFont("helvetica","bold");
+    pdf.setFontSize(9.5);
+    pdf.text("CUSTO TOTAL CONSOLIDADO", margin + 3, y + 6);
+    pdf.setFontSize(11.5);
+    pdf.setTextColor(220, 38, 38);
+    pdf.text(fmtBRL(r.custoTotal), pageW - margin - 3, y + 6, { align:"right" });
+    y += rowH + 4;
+
+    // Observação de "sem custo" e Metodologia lado a lado (aproveita a largura)
+    const halfW = (pageW - margin*2 - colGap) / 2;
+
+    // Garante espaço suficiente antes de desenhar o bloco final
+    if (y > pageH - 34) { newPageContinuation(); y = bodyTopAfterBreak; }
+
+    let boxY = y;
+    const obsH = semCustoMotivo ? 14 : 0;
+    if (semCustoMotivo){
+      pdf.setFillColor(220, 252, 231);
+      pdf.roundedRect(margin, boxY, halfW, obsH, 2, 2, "F");
+      pdf.setFillColor(16, 185, 129);
+      pdf.rect(margin, boxY, 1.3, obsH, "F");
+      pdf.setTextColor(6, 95, 70);
+      pdf.setFont("helvetica","bold");
+      pdf.setFontSize(7.5);
+      pdf.text("OBSERVAÇÃO", margin + 5, boxY + 5);
+      pdf.setFont("helvetica","normal");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(15, 23, 48);
+      const wrapped = pdf.splitTextToSize(semCustoMotivo, halfW - 8);
+      pdf.text(wrapped, margin + 5, boxY + 9.5);
+    }
+
+    // ==================== METODOLOGIA ====================
+    const methX = semCustoMotivo ? (margin + halfW + colGap) : margin;
+    const methW = semCustoMotivo ? halfW : tableW;
+    let my = boxY;
+    my = drawSectionTitle(methX, methW, my, "Metodologia de Cálculo", [124, 58, 237]);
+    pdf.setTextColor(74, 85, 120);
+    pdf.setFont("helvetica","normal");
+    pdf.setFontSize(7.6);
+    const method = [
+      "• Distância partida → destino calculada a partir das coordenadas geográficas reais dos",
+      "  endereços, com acréscimo de +25% sobre a linha reta para aproximar o trajeto rodoviário.",
+      "• Tempo de deslocamento estimado a uma velocidade média de 70 km/h.",
+      "• Custos de veículo e salário rateados proporcionalmente sobre a jornada mensal de 220h.",
+      "• Hospedagem incluída somente quando a distância só de ida excede 300 km.",
+      "• Remoto, bancada, interno ou cliente LABMEDIC não geram custo de deslocamento."
+    ];
+    method.forEach(line => {
+      pdf.text(line, methX, my);
+      my += 3.9;
+    });
+
+    drawFooter();
+
+    function drawFooter(){
+      // Linha decorativa
+      pdf.setDrawColor(230, 233, 242);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, pageH - 10, pageW - margin, pageH - 10);
+      pdf.setTextColor(138, 147, 178);
+      pdf.setFont("helvetica","normal");
+      pdf.setFontSize(7);
+      pdf.text("GRUPO LABMEDIC — Diligências Técnicas · Avaliação de Custos em Deslocamento", margin, pageH - 5.8);
+      const pageNum = pdf.internal.getNumberOfPages();
+      pdf.text(`Página ${pageNum}`, pageW - margin, pageH - 5.8, { align:"right" });
+      pdf.setFontSize(6.4);
+      pdf.setTextColor(180, 185, 210);
+      pdf.text("Documento gerado automaticamente pelo sistema · confidencial", pageW/2, pageH - 2.6, { align:"center" });
+    }
+
+    const safeName = (r.codigo || "registro").toString().replace(/[^A-Za-z0-9_-]+/g,"_");
+    pdf.save(`Diligencia_${safeName}.pdf`);
+    toast("PDF gerado com sucesso!", "success");
+  } catch(err){
+    console.error(err);
+    toast("Erro ao gerar o PDF: " + (err.message || err), "error");
+  }
 }
 
 // ---------- TEMA ----------
@@ -3100,6 +3823,8 @@ loadGeoCache();
 setupUpload();
 bindEvents();
 </script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
