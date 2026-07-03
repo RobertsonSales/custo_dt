@@ -241,6 +241,22 @@ tbody tr.zebra{background:var(--table-zebra)}
 html[data-theme="dark"] .totals-row td{background:var(--table-foot)!important;color:var(--text)}
 html[data-theme="dark"] .totals-row td.totals-label{color:#fff}
 html[data-theme="dark"] .totals-row td.money{color:#e8ecf8}
+
+/* Quadro "Performance por técnico": colunas com largura proporcional fixa,
+   para que a barra de totais tenha espaço suficiente para os números sem
+   quebrar linha nem espremer o rótulo — as demais tabelas não são afetadas. */
+.tech-perf-table{table-layout:fixed}
+.tech-perf-table th:nth-child(1), .tech-perf-table td:nth-child(1){width:19%}
+.tech-perf-table th:nth-child(2), .tech-perf-table td:nth-child(2){width:9%}
+.tech-perf-table th:nth-child(3), .tech-perf-table td:nth-child(3){width:11%}
+.tech-perf-table th:nth-child(4), .tech-perf-table td:nth-child(4){width:10%}
+.tech-perf-table th:nth-child(5), .tech-perf-table td:nth-child(5){width:13%}
+.tech-perf-table th:nth-child(6), .tech-perf-table td:nth-child(6){width:12%}
+.tech-perf-table th:nth-child(7), .tech-perf-table td:nth-child(7){width:26%}
+.tech-perf-table td:nth-child(-n+6){white-space:nowrap}
+.tech-perf-table .totals-row td{padding:13px 10px!important;font-size:12.5px}
+.tech-perf-table .totals-row td.totals-label{font-size:11.5px;letter-spacing:.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tech-perf-table .totals-row td.money.money-total{font-size:14px}
 .km{font-variant-numeric:tabular-nums;color:var(--text-soft)}
 .badge{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--badge-bg);color:var(--badge-fg)}
 .badge.bdg-period{background:var(--badge-period-bg);color:var(--badge-period-fg)}
@@ -1112,8 +1128,100 @@ const State = {
   chartMes: null,
   chartCli: null,
   chartTech: null,
-  fileName: null
+  fileName: null,
+  geoCache: {}      // cache de coordenadas reais por endereço (normalizado) — ver GEO_CACHE_KEY
 };
+
+// ---------- GEOCODIFICAÇÃO REAL DE ENDEREÇOS (partida e destino) ----------
+// O cálculo de custo passou a exigir SEMPRE as coordenadas geográficas reais
+// dos endereços de partida (base operacional) e destino (coluna "Endereço"),
+// em vez de depender só de heurísticas por nome de cidade/bairro. Para isso,
+// cada endereço distinto da planilha é geocodificado (Nominatim/OpenStreetMap)
+// uma única vez e o resultado fica salvo em cache local (localStorage), então
+// as importações seguintes reaproveitam as coordenadas já resolvidas.
+const GEO_CACHE_KEY = "diligencias.geocache.v1";
+const GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/search";
+const GEOCODE_DELAY_MS = 1100; // respeita o limite de 1 requisição/seg. do serviço público
+
+// Nomes de estado (como devolvidos pela geocodificação) -> sigla UF
+const STATE_NAME_TO_UF = {
+  "RIO DE JANEIRO":"RJ", "SAO PAULO":"SP", "PARANA":"PR", "SANTA CATARINA":"SC",
+  "MINAS GERAIS":"MG", "ESPIRITO SANTO":"ES", "DISTRITO FEDERAL":"DF",
+  "BAHIA":"BA", "RIO GRANDE DO SUL":"RS"
+};
+
+function loadGeoCache(){
+  try {
+    const raw = localStorage.getItem(GEO_CACHE_KEY);
+    State.geoCache = raw ? JSON.parse(raw) : {};
+  } catch(_){ State.geoCache = {}; }
+}
+function saveGeoCache(){
+  try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(State.geoCache)); } catch(_){}
+}
+
+// Consulta o serviço público de geocodificação para um único endereço.
+// Retorna {lat, lon, city, state} em caso de sucesso, ou null em caso de
+// falha (sem conexão, endereço não encontrado, serviço indisponível etc.).
+// Nesses casos o cálculo cai de volta na heurística existente (cidade/UF).
+async function geocodeOne(address){
+  const q = `${address}, Brasil`;
+  const url = `${GEOCODE_ENDPOINT}?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`;
+  try {
+    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data || !data.length) return null;
+    const hit = data[0];
+    const lat = parseFloat(hit.lat), lon = parseFloat(hit.lon);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    const addr = hit.address || {};
+    const cityName = addr.city || addr.town || addr.municipality || addr.village || addr.suburb || null;
+    const stateNameKey = normalizeKey(addr.state || "");
+    const uf = STATE_NAME_TO_UF[stateNameKey] || extractUfFromAddress(address) || null;
+    return {
+      lat, lon,
+      city: cityName ? `${cityName}${uf ? " - "+uf : ""}` : (uf ? ufFallbackLocation(uf)?.city?.replace(" (estimado)","") : null),
+      state: uf
+    };
+  } catch(_){
+    return null; // sem internet, CORS bloqueado, timeout, etc.
+  }
+}
+
+// Geocodifica em lote (sequencial, respeitando limite de requisições) todos os
+// endereços ainda não presentes no cache. Atualiza a barra de progresso do
+// overlay de importação. Se a primeira tentativa falhar por completo (ex.:
+// ambiente sem acesso à internet), interrompe cedo e segue com a heurística
+// local para todo o restante, sem travar a importação.
+async function geocodeAddresses(addresses, onProgress){
+  const pending = addresses.filter(a => a && !State.geoCache[normalizeKey(a)]);
+  if (!pending.length) return { resolved:0, failed:0, skipped:true };
+  let resolved = 0, failed = 0, consecutiveFailures = 0;
+  for (let i = 0; i < pending.length; i++){
+    const addr = pending[i];
+    const key = normalizeKey(addr);
+    const result = await geocodeOne(addr);
+    if (result){
+      State.geoCache[key] = { ...result, estimated:false, ts:Date.now() };
+      resolved++;
+      consecutiveFailures = 0;
+    } else {
+      failed++;
+      consecutiveFailures++;
+    }
+    if (onProgress) onProgress(i+1, pending.length, resolved, failed);
+    // Se muitas falhas seguidas (provável indisponibilidade do serviço/ambiente
+    // sem internet), para de tentar e deixa o restante para a heurística local.
+    if (consecutiveFailures >= 8){
+      failed += (pending.length - i - 1);
+      break;
+    }
+    if (i < pending.length - 1) await new Promise(res => setTimeout(res, GEOCODE_DELAY_MS));
+  }
+  saveGeoCache();
+  return { resolved, failed, skipped:false };
+}
 
 // ---------- UTILS ----------
 const $ = id => document.getElementById(id);
@@ -1234,6 +1342,16 @@ function resolveAddressLocation(address){
   if (!addr) return null;
 
   const upperA = normalizeKey(addr);
+
+  // PRIORIDADE MÁXIMA: coordenadas reais obtidas por geocodificação do
+  // próprio endereço (ver geocodeAddresses). Sempre que disponíveis, são
+  // usadas em vez de qualquer heurística por cidade/bairro/UF abaixo — é a
+  // fonte de verdade para o cálculo de distância entre partida e destino.
+  const geo = State.geoCache && State.geoCache[upperA];
+  if (geo && geo.lat != null && geo.lon != null){
+    return { city: geo.city || shortAddress(addr, 60), lat: geo.lat, lon: geo.lon, state: geo.state || null, estimated:false };
+  }
+
   const ufFromAddr = extractUfFromAddress(addr);
 
   const hint = matchCityHint(upperA);
@@ -1453,6 +1571,11 @@ function processWorkbook(wb){
   }
 
   State.raw = rows;
+
+  // Carrega e exibe os dados IMEDIATAMENTE, usando o cache de coordenadas já
+  // conhecido (e a heurística por cidade/UF para o que ainda não foi
+  // geocodificado). A geocodificação real dos endereços novos roda depois,
+  // em segundo plano, sem travar a importação (ver refineLocationsInBackground).
   computeCosts();
   hideOverlay();
   toast(rows.length+" registros importados com sucesso.", "success");
@@ -1466,6 +1589,45 @@ function processWorkbook(wb){
   // Recolhe o quadro de importação automaticamente e exibe status
   showImportStatus(rows.length, State.fileName);
   collapseHero(true);
+
+  refineLocationsInBackground(rows);
+}
+
+// ---------- GEOCODIFICAÇÃO EM SEGUNDO PLANO ----------
+// Resolve as coordenadas reais dos endereços ainda não conhecidos SEM travar
+// a tela: a tabela já aparece com os dados (usando a heurística por
+// cidade/UF nesses casos) e é silenciosamente refinada conforme os
+// endereços vão sendo geocodificados. Uma nova importação cancela um
+// refinamento anterior ainda em andamento (via geoJobId), evitando que dois
+// lotes concorrentes fiquem escrevendo no mesmo cache/tela.
+let geoJobId = 0;
+function refineLocationsInBackground(rows){
+  const uniqueAddresses = [...new Set(
+    rows.flatMap(r => [r.endereco, r.baseRaw]).map(a => (a||"").trim()).filter(Boolean)
+  )];
+  const pending = uniqueAddresses.filter(a => !State.geoCache[normalizeKey(a)]);
+  if (!pending.length) return;
+
+  const myJob = ++geoJobId;
+  toast(`Refinando coordenadas reais de ${pending.length} endereço(s) em segundo plano — os dados já carregados continuam utilizáveis normalmente.`, "info", 4500);
+
+  let lastRefresh = Date.now();
+  geocodeAddresses(pending, (done, total, resolved, failed) => {
+    if (myJob !== geoJobId) return; // uma importação mais nova assumiu o lugar deste job
+    // Atualiza a tela periodicamente (não a cada endereço) para não pesar a UI
+    const now = Date.now();
+    if (done === total || (resolved > 0 && (resolved % 12 === 0 || now - lastRefresh > 4000))){
+      lastRefresh = now;
+      computeCosts();
+      applyFilters();
+    }
+  }).then(result => {
+    if (myJob !== geoJobId || result.skipped) return;
+    computeCosts();
+    applyFilters();
+    if (result.resolved) toast(`${result.resolved} endereço(s) refinados com coordenadas reais.`, "success", 3500);
+    if (result.failed) toast(`${result.failed} endereço(s) não localizado(s) na geocodificação — mantida a estimativa por cidade/UF.`, "warn", 5500);
+  });
 }
 
 // ---------- CALCULO ----------
@@ -1869,7 +2031,8 @@ function renderTable(){
 
   $("tableInfo").textContent = `${State.filtered.length.toLocaleString("pt-BR")} registros${State.filtered.length>MAX? ` (exibindo os primeiros ${MAX})`:""}`;
   $("footInfo").innerHTML = `
-    <span>* Município marcado com asterisco indica estimativa heurística</span>
+    <span>* Município marcado com asterisco indica coordenada estimada por cidade/UF (usada apenas quando o endereço não pôde ser geocodificado com precisão)</span>
+    <span>Distância partida→destino calculada sempre a partir das coordenadas geográficas reais dos endereços (geocodificação), com acréscimo de +25% sobre a linha reta para aproximar o trajeto rodoviário.</span>
     <span>Base operacional definida pela coluna <strong>Base</strong> da planilha (Duque de Caxias, Jardim Sulacap, Campos dos Goytacazes ou São Brás/Curitiba).</span>
   `;
 }
@@ -1890,7 +2053,7 @@ function renderTechDashboard(){
   });
   const list = Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
   const g = list.reduce((a,[,v])=>{a.count+=v.count;a.km+=v.km;a.h+=v.h;a.total+=v.total;return a;},{count:0,km:0,h:0,total:0});
-  let html = `<table><thead><tr>
+  let html = `<table class="tech-perf-table"><thead><tr>
     <th style="min-width:180px">Técnico</th>
     <th style="text-align:right">Tarefas</th>
     <th style="text-align:right">Distância</th>
@@ -2933,6 +3096,7 @@ function initTheme(){
 
 // ---------- INIT ----------
 initTheme();
+loadGeoCache();
 setupUpload();
 bindEvents();
 </script>
