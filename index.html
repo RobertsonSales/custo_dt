@@ -1302,6 +1302,89 @@ function saveGeoCache(){
   try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(State.geoCache)); } catch(_){}
 }
 
+// ----------------------------------------------------------------------------
+// Distância rodoviária real (OSRM/OpenStreetMap) — em vez de aproximar a
+// quilometragem via linha reta + 25%, cada par (base → destino) é consultado
+// uma única vez no serviço público OSRM e o resultado (km rodoviários,
+// aderentes ao que o Google Maps mostra) fica em cache local, para que
+// importações e recálculos seguintes não repitam a rede.
+// ----------------------------------------------------------------------------
+const ROUTE_CACHE_KEY = "diligencias.routecache.v1";
+const OSRM_ENDPOINT = "https://router.project-osrm.org/route/v1/driving";
+const ROUTE_DELAY_MS = 350; // cortesia com o serviço público
+
+function loadRouteCache(){
+  try {
+    const raw = localStorage.getItem(ROUTE_CACHE_KEY);
+    State.routeCache = raw ? JSON.parse(raw) : {};
+  } catch(_){ State.routeCache = {}; }
+}
+function saveRouteCache(){
+  try { localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(State.routeCache)); } catch(_){}
+}
+function routeKey(lat1, lon1, lat2, lon2){
+  // 5 casas ≈ 1 m — suficiente para identificar o par sem duplicar por ruído.
+  const q = n => Number(n).toFixed(5);
+  return `${q(lat1)},${q(lon1)}->${q(lat2)},${q(lon2)}`;
+}
+function getCachedRoadDistanceKm(lat1, lon1, lat2, lon2){
+  if (!State.routeCache) return null;
+  const v = State.routeCache[routeKey(lat1, lon1, lat2, lon2)];
+  return (typeof v === "number" && isFinite(v)) ? v : null;
+}
+async function fetchRoadDistanceKm(lat1, lon1, lat2, lon2){
+  const url = `${OSRM_ENDPOINT}/${lon1},${lat1};${lon2},${lat2}?overview=false`;
+  try {
+    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const route = data && data.routes && data.routes[0];
+    if (!route || !isFinite(route.distance)) return null;
+    return route.distance / 1000;
+  } catch(_){ return null; }
+}
+// Percorre todas as linhas já com coordenadas resolvidas e, para cada par
+// (base, unidade) ainda não cacheado, busca a distância rodoviária real.
+async function resolveRoadDistances(rows, onProgress){
+  if (!State.routeCache) State.routeCache = {};
+  const pending = [];
+  const seen = new Set();
+  for (const r of rows){
+    const loc = resolveLocation(r.cliente, r.endereco);
+    if (!loc) continue;
+    const isRemoto = /REMOTO/i.test(r.tipo || "");
+    const servicoNaBase = /BANCADA|ATENDIMENTO\s+INTERNO/i.test(r.tipo || "");
+    const isClienteLabmedic = /LABMEDIC/i.test(r.cliente || "");
+    if (isRemoto || servicoNaBase || isClienteLabmedic) continue;
+    const dt = parseDate(r.dataRaw);
+    const base = resolveBaseFromRaw(r.baseRaw) || getBase(dt ? dt.year : 2025, dt ? dt.month : 1, loc);
+    const k = routeKey(base.lat, base.lon, loc.lat, loc.lon);
+    if (seen.has(k) || State.routeCache[k] != null) continue;
+    seen.add(k);
+    pending.push({ k, base, loc });
+  }
+  if (!pending.length) return { resolved: 0, failed: 0, total: 0 };
+  let resolved = 0, failed = 0, consecutiveFails = 0;
+  for (let i = 0; i < pending.length; i++){
+    const p = pending[i];
+    const km = await fetchRoadDistanceKm(p.base.lat, p.base.lon, p.loc.lat, p.loc.lon);
+    if (km != null){
+      State.routeCache[p.k] = km;
+      resolved++;
+      consecutiveFails = 0;
+    } else {
+      failed++;
+      consecutiveFails++;
+      if (consecutiveFails >= 6) break; // serviço indisponível — para o lote
+    }
+    if (resolved && (resolved % 8 === 0 || i === pending.length - 1)) saveRouteCache();
+    if (onProgress) onProgress(i+1, pending.length, resolved, failed);
+    await new Promise(res => setTimeout(res, ROUTE_DELAY_MS));
+  }
+  saveRouteCache();
+  return { resolved, failed, total: pending.length };
+}
+
 // Consulta o serviço público de geocodificação para um único endereço.
 // Retorna {lat, lon, city, state} em caso de sucesso, ou null em caso de
 // falha (sem conexão, endereço não encontrado, serviço indisponível etc.).
@@ -1762,7 +1845,12 @@ function refineLocationsInBackground(rows){
     rows.flatMap(r => [r.endereco, r.baseRaw]).map(a => (a||"").trim()).filter(Boolean)
   )];
   const pending = uniqueAddresses.filter(a => !State.geoCache[normalizeKey(a)]);
-  if (!pending.length) return;
+  if (!pending.length){
+    // Nada a geocodificar — mas ainda pode haver pares (base→destino) sem
+    // distância rodoviária resolvida. Dispara direto o cálculo OSRM.
+    resolveRoadDistancesInBackground(rows);
+    return;
+  }
 
   const myJob = ++geoJobId;
   toast(`Refinando coordenadas reais de ${pending.length} endereço(s) em segundo plano — os dados já carregados continuam utilizáveis normalmente.`, "info", 4500);
@@ -1783,6 +1871,38 @@ function refineLocationsInBackground(rows){
     applyFilters();
     if (result.resolved) toast(`${result.resolved} endereço(s) refinados com coordenadas reais.`, "success", 3500);
     if (result.failed) toast(`${result.failed} endereço(s) não localizado(s) na geocodificação — mantida a estimativa por cidade/UF.`, "warn", 5500);
+    // Com as coordenadas resolvidas, calcula as distâncias rodoviárias reais
+    // (aderentes ao Google Maps) em segundo plano.
+    resolveRoadDistancesInBackground(rows);
+  });
+}
+
+// Resolve as distâncias rodoviárias reais (OSRM) em segundo plano, atualizando
+// a tela conforme os pares (base→destino) vão sendo obtidos.
+let routeJobId = 0;
+function resolveRoadDistancesInBackground(rows){
+  const myJob = ++routeJobId;
+  let lastRefresh = Date.now();
+  let announced = false;
+  resolveRoadDistances(rows, (done, total, resolved, failed) => {
+    if (myJob !== routeJobId) return;
+    if (!announced && total > 0){
+      announced = true;
+      toast(`Calculando ${total} distância(s) rodoviária(s) real(is) em segundo plano — as estimativas atuais serão substituídas automaticamente.`, "info", 4500);
+    }
+    const now = Date.now();
+    if (done === total || (resolved > 0 && (resolved % 6 === 0 || now - lastRefresh > 4000))){
+      lastRefresh = now;
+      computeCosts();
+      applyFilters();
+    }
+  }).then(result => {
+    if (myJob !== routeJobId) return;
+    if (!result || !result.total) return;
+    computeCosts();
+    applyFilters();
+    if (result.resolved) toast(`${result.resolved} distância(s) rodoviária(s) real(is) resolvida(s) — quilometragem aderente ao Google Maps.`, "success", 4000);
+    if (result.failed) toast(`${result.failed} rota(s) não obtida(s) do serviço rodoviário — mantida a estimativa por linha reta + 35%.`, "warn", 5500);
   });
 }
 
@@ -1836,8 +1956,13 @@ function computeCosts(){
       if (mesmaBase || isRemoto || servicoNaBase || isClienteLabmedic){
         distOneWay = 0; dist = 0; tempo = 0;
       } else {
-        // Aproximação rodoviária: + 25% sobre distância em linha reta
-        distOneWay = distRetaBase * 1.25;
+        // Distância rodoviária real (OSRM/OpenStreetMap) — aderente ao
+        // Google Maps — quando o par (base, destino) já foi resolvido em
+        // segundo plano. Enquanto ainda não estiver disponível, aplica uma
+        // aproximação por linha reta + 35% (empiricamente mais próxima das
+        // rotas reais brasileiras do que os +25% anteriores).
+        const roadKm = getCachedRoadDistanceKm(base.lat, base.lon, loc.lat, loc.lon);
+        distOneWay = roadKm != null ? roadKm : distRetaBase * 1.35;
         dist = distOneWay * 2; // ida e volta
         tempo = dist / 70;
       }
@@ -2679,7 +2804,7 @@ function buildSummaryPage(data, pageNum, totalPages){
         <div class="pdf-info-row"><span class="k">Custo mensal do salário</span><span class="v">${fmtBRL(parseFloat($("cfgSalario").value))}</span></div>
         <div class="pdf-info-row"><span class="k">Hospedagem (ida &gt; 300 km)</span><span class="v">${fmtBRL(parseFloat($("cfgHospedagem").value)||0)}</span></div>
         <div class="pdf-info-row"><span class="k">Velocidade média / Jornada</span><span class="v">70 km/h · 220 h/mês</span></div>
-        <div class="pdf-info-row"><span class="k">Acréscimo rodoviário s/ haversine</span><span class="v">+25%</span></div>
+        <div class="pdf-info-row"><span class="k">Base de quilometragem</span><span class="v">Rota rodoviária real (OSRM/OpenStreetMap)</span></div>
       </div>
       <div class="pdf-info-card info-pr">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Bases Operacionais</h4>
@@ -3820,6 +3945,7 @@ function initTheme(){
 // ---------- INIT ----------
 initTheme();
 loadGeoCache();
+loadRouteCache();
 setupUpload();
 bindEvents();
 </script>
