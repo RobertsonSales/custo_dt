@@ -1199,7 +1199,15 @@ const CITY_HINTS = [
   ["JACAREZINHO", { city:"Jacarezinho - PR", lat:-23.1604, lon:-49.9706 }],
   ["BOM JARDIM", { city:"Bom Jardim - RJ", lat:-22.1554, lon:-42.4178 }],
   ["BOM JESUS DO ITABAPOANA", { city:"Bom Jesus do Itabapoana - RJ", lat:-21.1300, lon:-41.6797 }],
+  // "ITABAPOANA" isolado é ambíguo: aparece tanto em "Bom Jesus do
+  // Itabapoana" quanto em "São Francisco de Itabapoana" (município distinto,
+  // ~65 km de distância). A entrada específica abaixo é testada primeiro
+  // (lista ordenada por especificidade) para não atribuir por engano as
+  // coordenadas de Bom Jesus a endereços de São Francisco de Itabapoana.
+  ["SÃO FRANCISCO DE ITABAPOANA", { city:"São Francisco de Itabapoana - RJ", lat:-21.4700, lon:-41.1091 }],
+  ["SAO FRANCISCO DE ITABAPOANA", { city:"São Francisco de Itabapoana - RJ", lat:-21.4700, lon:-41.1091 }],
   ["ITABAPOANA", { city:"Bom Jesus do Itabapoana - RJ", lat:-21.1300, lon:-41.6797 }],
+  ["ITAOCARA", { city:"Itaocara - RJ", lat:-21.6700, lon:-42.0775 }],
   ["TRES RIOS", { city:"Três Rios - RJ", lat:-22.1167, lon:-43.2192 }],
   ["TRÊS RIOS", { city:"Três Rios - RJ", lat:-22.1167, lon:-43.2192 }],
   ["CORDEIRO", { city:"Cordeiro - RJ", lat:-22.0286, lon:-42.3614 }],
@@ -1592,7 +1600,20 @@ function resolveAddressLocation(address){
 
   const ufFromAddr = extractUfFromAddress(addr);
 
-  const hint = matchCityHint(upperA);
+  // As palavras-chave de cidade/bairro só devem valer quando aparecem na
+  // parte de BAIRRO/CIDADE do endereço — nunca no logradouro (rua/avenida
+  // e número), que normalmente vem antes da primeira vírgula. Nomes de rua
+  // frequentemente contêm sobrenomes ou palavras que coincidem por acaso
+  // com cidades/bairros cadastrados (ex.: "Av. Gen. Cordeiro de Faria" não
+  // tem nenhuma relação com o município de Cordeiro-RJ, mas a palavra
+  // "Cordeiro" aparece em ambos). Sem este recorte, um endereço na Zona
+  // Oeste do Rio podia ser resolvido para uma cidade do interior a mais de
+  // 100 km de distância, inflando artificialmente distância, tempo e custo.
+  const firstComma = addr.indexOf(",");
+  const addrForHint = firstComma !== -1 ? addr.slice(firstComma + 1) : addr;
+  const upperForHint = normalizeKey(addrForHint);
+
+  const hint = matchCityHint(upperForHint);
   if (hint){
     const found = { ...hint };
     if (ufFromAddr) found.state = ufFromAddr;
@@ -1718,6 +1739,22 @@ function parseDate(str){
   // ISO
   m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return { day:+m[3], month:+m[2], year:+m[1], raw:`${m[3]}/${m[2]}/${m[1]}` };
+  // Fallback defensivo: texto de data com ANO DE 2 DÍGITOS (ex.: "1/1/25"),
+  // formato produzido pelo Excel/SheetJS para o numFmtId 14 ("m/d/yy") em
+  // reimportações onde a célula não chegue como objeto Date (ex.: CSV
+  // reexportado). Assume mês/dia primeiro (padrão norte-americano do
+  // próprio formato "m/d/yy"), com o dia sempre no intervalo 1-31 — se o
+  // primeiro número não puder ser mês (>12), inverte a ordem.
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (m) {
+    let a = +m[1], b = +m[2];
+    const year = 2000 + (+m[3]);
+    const month = a <= 12 ? a : b;
+    const day = a <= 12 ? b : a;
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return { day, month, year, raw: `${String(day).padStart(2,"0")}/${String(month).padStart(2,"0")}/${year}` };
+    }
+  }
   return null;
 }
 
@@ -1770,7 +1807,18 @@ function processWorkbook(wb){
   let sheetName = wb.SheetNames.find(s => s.toLowerCase().includes("tarefa"));
   if (!sheetName) sheetName = wb.SheetNames[0];
   const sheet = wb.Sheets[sheetName];
-  const aoa = XLSX.utils.sheet_to_json(sheet, { header:1, raw:false, defval:"" });
+  // IMPORTANTE: raw:true (em vez de raw:false) para que células de data
+  // (coluna "Data", com cellDates:true) cheguem como objetos Date reais.
+  // Com raw:false, o SheetJS retorna o TEXTO formatado da célula segundo o
+  // número de formato do Excel (numFmtId 14 = "m/d/yy", ex.: "1/1/25"),
+  // que não bate com nenhum dos padrões aceitos por parseDate() (nem
+  // dd/mm/aaaa — ano com 4 dígitos — nem ISO aaaa-mm-dd). Resultado: TODAS
+  // as datas falhavam ao parsear, r.ano/r.mes ficavam sempre nulos, e por
+  // consequência o gráfico "Custo total por mês" (painel Visão analítica)
+  // e os filtros de Ano/Mês ficavam sempre vazios. Colunas de texto (Tipo,
+  // Cliente, Endereço, Base, Responsável, Duração) não são afetadas por
+  // essa mudança, pois já são armazenadas como string na planilha.
+  const aoa = XLSX.utils.sheet_to_json(sheet, { header:1, raw:true, defval:"" });
 
   // Encontrar linha de cabeçalho (contém "Codigo" e "Cliente")
   let headerIdx = -1;
@@ -1916,6 +1964,10 @@ function computeCosts(){
   const HORAS_MES = 220;
   const LIMIAR_HOSPEDAGEM_KM = 300; // km (só ida) a partir do qual se considera hospedagem
 
+  // Controla, dentro desta chamada de computeCosts(), quais combinações de
+  // técnico+data+unidade já tiveram sua viagem de ida e volta contabilizada
+  // (ver regra de negócio "viagemDuplicada" abaixo).
+  const tripSeen = new Map();
   const rows = State.raw.map(r => {
     const dt = parseDate(r.dataRaw);
     const ano = dt ? dt.year : null;
@@ -1945,6 +1997,15 @@ function computeCosts(){
     // (Rio de Janeiro), gerando custo indevido; agora são zerados de forma
     // explícita e incondicional pelo nome do cliente.
     const isClienteLabmedic = /LABMEDIC/i.test(r.cliente || "");
+    // Chave de unidade combinada: NOME + ENDEREÇO normalizado.
+    // Permite distinguir unidades homônimas em locais diferentes nas agregações
+    // e também identificar quando duas tarefas são, na prática, a MESMA unidade
+    // (usado logo abaixo para detectar viagens duplicadas no mesmo dia).
+    const enderecoKey = normalizeKey(r.endereco);
+    const clienteKey = normalizeKey(r.cliente);
+    const unidadeKey = enderecoKey ? (clienteKey + " || " + enderecoKey) : clienteKey;
+    // Rótulo amigável da unidade (cliente + município/endereço resumido)
+    const unidadeLabel = r.cliente + (r.endereco ? " — " + shortAddress(r.endereco, 50) : "");
     let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false;
     let cidade = "—";
     if (loc){
@@ -1975,20 +2036,39 @@ function computeCosts(){
     // veículo, nem salário, nem hospedagem) — zerado de forma explícita, e
     // não apenas como efeito colateral do tempo de deslocamento ser zero.
     const semCusto = mesmaBase || isRemoto || servicoNaBase || isClienteLabmedic;
-    const fuel = semCusto ? 0 : (dist / consumo) * fuelPrice;
-    const veic = semCusto ? 0 : veicCost * (tempo / HORAS_MES);
-    const sal = semCusto ? 0 : salCost * (tempo / HORAS_MES);
+    // Regra de negócio: quando o MESMO técnico atende a MESMA unidade (cliente
+    // + endereço) mais de uma vez no MESMO dia, fisicamente há um único
+    // deslocamento de ida e volta cobrindo todos os chamados daquele dia — o
+    // técnico não volta à base e refaz a viagem entre uma tarefa e outra no
+    // mesmo endereço. Sem esta regra, cada tarefa extra do dia duplicava
+    // integralmente km, horas e custo (combustível, veículo, salário e
+    // hospedagem) de uma viagem que já havia sido contabilizada. A primeira
+    // tarefa do dia para aquela unidade carrega o custo da viagem; as demais
+    // do mesmo dia/unidade ficam com deslocamento zerado e uma referência ao
+    // código da tarefa que já contabilizou aquele trecho.
+    const dataChave = dt ? `${dt.year}-${String(dt.month).padStart(2,"0")}-${String(dt.day).padStart(2,"0")}` : normalizeKey(r.dataRaw);
+    const viagemChave = normalizeKey(r.responsavel) + "|" + dataChave + "|" + unidadeKey;
+    let viagemDuplicada = false, viagemRefCodigo = null;
+    if (!semCusto){
+      const anterior = tripSeen.get(viagemChave);
+      if (anterior){
+        viagemDuplicada = true;
+        viagemRefCodigo = anterior;
+      } else {
+        tripSeen.set(viagemChave, r.codigo);
+      }
+    }
+    if (viagemDuplicada){
+      distOneWay = 0; dist = 0; tempo = 0;
+    }
+    const custoZerado = semCusto || viagemDuplicada;
+    const fuel = custoZerado ? 0 : (dist / consumo) * fuelPrice;
+    const veic = custoZerado ? 0 : veicCost * (tempo / HORAS_MES);
+    const sal = custoZerado ? 0 : salCost * (tempo / HORAS_MES);
     // Regra de negócio: quando a distância só de IDA supera 300 km, inclui o
     // custo médio de hospedagem informado nos parâmetros.
-    const hosp = semCusto ? 0 : ((distOneWay > LIMIAR_HOSPEDAGEM_KM) ? hospCost : 0);
+    const hosp = custoZerado ? 0 : ((distOneWay > LIMIAR_HOSPEDAGEM_KM) ? hospCost : 0);
     const total = fuel + veic + sal + hosp;
-    // Chave de unidade combinada: NOME + ENDEREÇO normalizado.
-    // Permite distinguir unidades homônimas em locais diferentes nas agregações.
-    const enderecoKey = normalizeKey(r.endereco);
-    const clienteKey = normalizeKey(r.cliente);
-    const unidadeKey = enderecoKey ? (clienteKey + " || " + enderecoKey) : clienteKey;
-    // Rótulo amigável da unidade (cliente + município/endereço resumido)
-    const unidadeLabel = r.cliente + (r.endereco ? " — " + shortAddress(r.endereco, 50) : "");
     return {
       ...r,
       ano, mes, base: base.name, baseShort: base.short,
@@ -2008,6 +2088,8 @@ function computeCosts(){
       distOneWayKm: distOneWay,
       hospedagem: hosp > 0,
       custoTotal: total,
+      viagemDuplicada,
+      viagemRefCodigo,
       duracao: r.duracaoRaw || "00:00:00",
       duracaoSeg: timeToSeconds(r.duracaoRaw),
       dataFormat: dt ? dt.raw : (r.dataRaw||"")
@@ -3443,6 +3525,7 @@ function openRecordDetail(r){
     if (/BANCADA/i.test(r.tipo || "")) return "Manutenção em bancada — realizada na base do técnico.";
     if (/ATENDIMENTO\s+INTERNO/i.test(r.tipo || "")) return "Atendimento interno — realizado na própria base.";
     if (/LABMEDIC/i.test(r.cliente || "")) return "Cliente LABMEDIC — atividade interna, sem deslocamento.";
+    if (r.viagemDuplicada) return `Mesma unidade já atendida no mesmo dia na tarefa ${r.viagemRefCodigo || "—"} — deslocamento contabilizado uma única vez.`;
     if ((r.distKm || 0) < 0.01) return "Unidade atendida coincide com a base operacional.";
     return "Sem custo aplicável.";
   })();
