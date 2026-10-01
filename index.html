@@ -436,10 +436,10 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 
 /* CAPA */
 .pdf-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:680px;text-align:center;background:linear-gradient(135deg,#0f1530 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:8px;padding:60px 40px}
-.pdf-cover .cv-logo{width:74px;height:74px;border-radius:20px;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);display:grid;place-items:center;box-shadow:0 14px 35px rgba(124,58,237,.55);margin-bottom:28px}
-.pdf-cover .cv-logo svg{width:42px;height:42px;color:#fff}
-.pdf-cover h1{color:#fff;font-size:36px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px;font-family:'Plus Jakarta Sans',sans-serif}
-.pdf-cover h2{color:#c7d2fe;font-size:18px;font-weight:600;margin-bottom:38px}
+.pdf-cover .cv-logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);display:grid;place-items:center;box-shadow:0 14px 35px rgba(124,58,237,.55);margin-bottom:18px}
+.pdf-cover .cv-logo svg{width:38px;height:38px;color:#fff}
+.pdf-cover h1{color:#fff;font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;font-family:'Plus Jakarta Sans',sans-serif;line-height:1.1}
+.pdf-cover h2{color:#c7d2fe;font-size:15px;font-weight:600;margin-bottom:22px}
 .pdf-cover .cv-divider{width:80px;height:3px;background:linear-gradient(90deg,#06b6d4,#7c3aed);border-radius:999px;margin:0 auto 24px}
 .pdf-cover .cv-meta{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px 28px;margin-top:22px;max-width:680px;width:100%}
 .pdf-cover .cv-meta-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px 16px;text-align:left}
@@ -510,7 +510,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 .pdf-foot{position:absolute;bottom:14px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#6b7280;border-top:1px solid #e6e9f2;padding-top:6px}
 .pdf-foot strong{color:#1e1b4b}
 
-.pdf-explainer{background:#f0f4ff;border-left:4px solid #4f46e5;border-radius:6px;padding:12px 14px;font-size:10.5px;color:#1e1b4b;margin-bottom:14px;line-height:1.55}
+.pdf-explainer{background:#f0f4ff;border-left:4px solid #4f46e5;border-radius:6px;padding:8px 10px;font-size:10px;color:#1e1b4b;margin-bottom:8px;line-height:1.4}
 .pdf-explainer strong{color:#3730a3}
 
 @media (max-width:1200px){
@@ -3153,13 +3153,14 @@ function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTa
 
 /* Renderiza chart em canvas oculto e retorna dataURL (alta resolução, fundo branco) */
 function renderChartToImage(type, data){
-  return new Promise((resolve) => {
-    // Gráfico horizontal (Top Clientes) precisa de mais largura para os
-    // rótulos de cliente e mais altura para acomodar 8 barras com folga.
-    // O gráfico vertical mensal mantém proporção original.
-    const isHBar = (type === "hbar");
-    const w = isHBar ? 1200 : 900;
-    const h = isHBar ? 620 : 460;
+    result.cli = await renderChartToImage("hbar", {
+      // Truncamos em 60 chars para nomes longos, evitando deformar a
+      // barra horizontal. O número de barras continua em 8 unidades.
+      labels: data.topClients.slice(0,8).map(([,v]) => { const l = v.label || v.cliente || ""; return l.length>60?l.slice(0,60)+"…":l; }),
+      values: data.topClients.slice(0,8).map(([,v]) => v.total)
+    });
+    const w = isHBar ? 1240 : 880;
+    const h = isHBar ? 660 : 480;
     const canvas = document.createElement("canvas");
     canvas.width = w; canvas.height = h;
     canvas.style.cssText = "position:absolute;left:-9999px;top:-9999px";
@@ -3360,16 +3361,35 @@ async function downloadPdfFromPreview(){
           foot: [footRow],
           startY: 18,
           margin: { top: 16, left: 8, right: 8, bottom: 12 },
-          styles: { fontSize: 6.2, cellPadding: 1.3, overflow: "ellipsize", lineColor: [230,233,242], lineWidth: 0.1 },
-          headStyles: { fillColor: [79,70,229], textColor: 255, fontSize: 6.2, halign: "left" },
-          footStyles: { fillColor: [30,27,75], textColor: 255, fontStyle: "bold", fontSize: 5.8 },
+          // Fontes confortáveis (8.2pt) + overflow "linebreak" permitem que
+          // nomes longos de unidades/tipos QUEBREM em 2 linhas em vez de
+          // virar reticências ("ASSESSORIA CIENTÍFI…", "HOSPITAL MATERNIDADE SÃ…").
+          styles: { fontSize: 8.2, cellPadding: 1.6, overflow: "linebreak", lineColor: [230,233,242], lineWidth: 0.1, valign: "top" },
+          headStyles: { fillColor: [79,70,229], textColor: 255, fontSize: 8.2, halign: "left", valign: "middle", overflow: "linebreak" },
+          footStyles: { fillColor: [30,27,75], textColor: 255, fontStyle: "bold", fontSize: 8.2, overflow: "linebreak" },
           alternateRowStyles: { fillColor: [250,251,255] },
+          // Larguras em mm ajustadas para A4 landscape (297mm), com padding
+          // left+right de 16mm. Total disponível ≈ 281mm. Layout:
+          //  Cód(14) Data(20) Tipo(30) Cliente(58) Mun(26) Base(15)
+          //  Tec(22) Dur(15) Km(11)  Tempo(14) Comb(18) Veic(16) Sal(16)
+          //  Hosp(15) Total(22) = 310mm → reduzido(menores colunas numéricas)
+          // para caber em 281mm mantendo leitura confortável.
           columnStyles: {
-            3:{cellWidth:36},
-            7:{cellWidth:12}, 8:{halign:"right",cellWidth:11}, 9:{halign:"right",cellWidth:12},
-            10:{halign:"right",cellWidth:18}, 11:{halign:"right",cellWidth:18},
-            12:{halign:"right",cellWidth:18}, 13:{halign:"right",cellWidth:16},
-            14:{halign:"right",cellWidth:19,textColor:[220,38,38],fontStyle:"bold"}
+            0:{cellWidth:14,halign:"right"},
+            1:{cellWidth:18,halign:"center"},
+            2:{cellWidth:28,overflow:"linebreak"},
+            3:{cellWidth:54,overflow:"linebreak"},
+            4:{cellWidth:24,overflow:"linebreak"},
+            5:{cellWidth:14,halign:"center"},
+            6:{cellWidth:20,overflow:"linebreak"},
+            7:{cellWidth:13,halign:"center",overflow:"linebreak"},
+            8:{halign:"right",cellWidth:11},
+            9:{halign:"right",cellWidth:14},
+            10:{halign:"right",cellWidth:18},
+            11:{halign:"right",cellWidth:16},
+            12:{halign:"right",cellWidth:16},
+            13:{halign:"right",cellWidth:14},
+            14:{halign:"right",cellWidth:22,textColor:[220,38,38],fontStyle:"bold"}
           },
           didDrawPage: () => {
             pdf.setFontSize(11); pdf.setTextColor(30,27,75);
@@ -3390,34 +3410,36 @@ async function downloadPdfFromPreview(){
     // a cada N linhas. Mais simples visualmente, mas garante que a lista
     // completa de registros sempre apareça no PDF baixado.
     if (!tableRenderedOk){
-      const colX = [8, 26, 46, 66, 116, 146, 166, 190, 202, 216, 234, 252, 270, 286];
-      const rowH = 4.2, linesPerPage = Math.floor((pageH - 30) / rowH);
-      let cursorRow = 0;
+      // X de cada coluna na página landscape A4 (de 8 a ~289 mm).
+      const colX = [8, 24, 46, 78, 136, 162, 178, 202, 218, 235, 252, 268];
+      const colW = [14,22,30,54,22,14,22,13,15,17,15,17];
+      const head = ["Cód","Data","Tipo","Cliente","Município","Base","Técnico","Duração","Km","Tempo","Combust","Total"];
+      const rowH = 5.5, linesPerPage = Math.floor((pageH - 30) / rowH);
       const drawHeaderRow = (y) => {
-        pdf.setFontSize(7); pdf.setFont(undefined,"bold"); pdf.setTextColor(255,255,255);
-        pdf.setFillColor(79,70,229); pdf.rect(8, y-3.2, pageW-16, rowH, "F");
-        head.forEach((h,ci) => pdf.text(String(h), colX[ci]||8, y));
+        pdf.setFillColor(79,70,229); pdf.rect(8, y-4.0, pageW-16, rowH, "F");
+        pdf.setFontSize(8); pdf.setFont(undefined,"bold"); pdf.setTextColor(255,255,255);
+        head.forEach((h,ci) => pdf.text(String(h), colX[ci]||8, y, { maxWidth: colW[ci] }));
         pdf.setFont(undefined,"normal"); pdf.setTextColor(20,20,30);
       };
       let y = 18;
       pdf.setFontSize(11); pdf.setTextColor(30,27,75);
       pdf.text("Registros Detalhados — Tarefas", 8, 12);
       drawHeaderRow(y); y += rowH;
-      body.forEach((row, idx) => {
-        if (cursorRow > 0 && cursorRow % linesPerPage === 0){
+      body.forEach((row) => {
+        if (y > pageH - 18){
           pdf.addPage("a4","landscape");
           y = 18;
           pdf.setFontSize(11); pdf.setTextColor(30,27,75);
           pdf.text("Registros Detalhados — Tarefas (cont.)", 8, 12);
           drawHeaderRow(y); y += rowH;
         }
-        pdf.setFontSize(6.2);
-        row.forEach((cell,ci) => pdf.text(String(cell), colX[ci]||8, y));
+        pdf.setFontSize(8);
+        row.forEach((cell,ci) => pdf.text(String(cell), colX[ci]||8, y, { maxWidth: colW[ci] }));
         y += rowH;
-        cursorRow++;
       });
-      pdf.setFontSize(6.5); pdf.setFont(undefined,"bold");
-      pdf.text(footRow.filter(Boolean).join("   "), 8, y+2);
+      pdf.setFillColor(30,27,75); pdf.rect(8, y-4.0, pageW-16, rowH, "F");
+      pdf.setFontSize(8); pdf.setFont(undefined,"bold"); pdf.setTextColor(255,255,255);
+      pdf.text("TOTAIS  ·  " + body.length + " registros", 8, y);
       pdf.setFont(undefined,"normal");
       tableRenderedOk = true;
     }
@@ -4037,5 +4059,6 @@ bindEvents();
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79","spa":2}' crossorigin="anonymous"></script>
 </body>
 </html>
