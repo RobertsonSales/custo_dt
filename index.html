@@ -506,11 +506,16 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 .pdf-table tbody td{padding:5px 6px;border-bottom:1px solid #eef0f7;vertical-align:top;color:#1a1f3a}
 .pdf-table tbody tr:nth-child(even) td{background:#fafbff}
 .pdf-table tbody tr.subtotal td{background:#eef2ff;font-weight:700;color:#3730a3;border-top:2px solid #4f46e5}
-.pdf-table tfoot td{background:#1e1b4b;color:#fff;padding:8px 6px;font-weight:800;font-size:10px}
+.pdf-table tfoot td{background:#e0e7ff;color:#1e1b4b;padding:8px 6px;font-weight:800;font-size:10px;border-top:2px solid #a5b4fc}
+.pdf-table.detail{table-layout:fixed;font-size:9px}
+.pdf-table.detail td,.pdf-table.detail th{overflow-wrap:anywhere;word-break:break-word}
+.pdf-table.detail thead th{padding:6px 4px;font-size:8.5px}
+.pdf-table.detail tbody td{padding:4px}
+.pdf-table.detail .num{white-space:nowrap;padding-right:6px}
 .pdf-table .num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .pdf-table .center{text-align:center}
 .pdf-table .total-col{color:#dc2626;font-weight:800}
-.pdf-table tfoot .total-col{color:#fef08a}
+.pdf-table tfoot .total-col{color:#b91c1c}
 .pdf-badge{display:inline-block;padding:2px 6px;border-radius:999px;font-size:8.5px;font-weight:700}
 .pdf-badge.b-caxias{background:#fef3c7;color:#92400e}
 .pdf-badge.b-sulacap{background:#dbeafe;color:#1e40af}
@@ -521,6 +526,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 .pdf-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .pdf-summary-card{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;}
 .pdf-table .fuel-col{font-weight:700;color:#92400e}
+.pdf-table tfoot .fuel-col{color:#92400e}
 .pdf-summary-card h4{font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #eef2ff}
 
 .pdf-foot{position:absolute;bottom:14px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#6b7280;border-top:1px solid #e6e9f2;padding-top:6px}
@@ -1112,6 +1118,7 @@ const CLIENT_MAP = {
   "HOSPITAL CENTRAL DA AERONAUTICA - HCA": { city:"Galeão - RJ", lat:-22.8089, lon:-43.2436 },
   "HOSPITAL DE AERONÁUTICA DOS AFONSOS (HFAA)": { city:"Campo dos Afonsos - RJ", lat:-22.8839, lon:-43.3953 },
   "HOSPITAL DE FORÇA AÉREA DO GALEÃO - HFAG": { city:"Galeão - RJ", lat:-22.8089, lon:-43.2436 },
+  "UNIDADE PRÉ HOSPITALAR XERÉM": { city:"Xerém (Duque de Caxias) - RJ", lat:-22.5917, lon:-43.2646 },
   "HOSPITAL CENTRAL DO EXERCITO - HCE": { city:"Triagem - RJ", lat:-22.8929, lon:-43.2547 },
   "HOSPITAL CENTRAL DA MARINHA - ILHA DAS COBRAS": { city:"Centro - RJ", lat:-22.8967, lon:-43.1697 },
   "HCPM - HOSPITAL CENTRAL DA POLÍCIA MILITAR": { city:"Estácio - RJ", lat:-22.9119, lon:-43.2095 },
@@ -2014,6 +2021,26 @@ function processWorkbook(wb){
     toast("Nenhum registro encontrado na planilha.", "warn");
     return;
   }
+
+  // Registros sem endereço herdam o endereço que a MESMA unidade (cliente)
+  // já tem em outros registros da planilha — o mais frequente. Sem isso, a
+  // unidade caía na coordenada genérica "Rio de Janeiro (estimado)". Só
+  // preenche quando um endereço predomina (>= 60% dos registros preenchidos).
+  const _cont = {};
+  rows.forEach(r => {
+    if (!r.endereco) return;
+    const k = normalizeKey(r.cliente);
+    const m = _cont[k] || (_cont[k] = {});
+    m[r.endereco] = (m[r.endereco] || 0) + 1;
+  });
+  rows.forEach(r => {
+    if (r.endereco) return;
+    const m = _cont[normalizeKey(r.cliente)];
+    if (!m) return;
+    const ents = Object.entries(m).sort((a,b) => b[1]-a[1]);
+    const total = ents.reduce((a,e) => a + e[1], 0);
+    if (ents[0][1] / total >= 0.6){ r.endereco = ents[0][0]; r.enderecoInferido = true; }
+  });
 
   State.raw = rows;
 
@@ -3308,6 +3335,9 @@ function buildChartsPage(data, pageNum, totalPages, chartImages){
 // sendo excluída do caminho de exportação por imagem (o download gera a
 // tabela em vetor separadamente, via autoTable/fallback, para performance
 // e texto selecionável em datasets grandes).
+// Número no padrão pt-BR sem o símbolo da moeda (o cabeçalho informa "R$").
+function nBR(v){ return (v || 0).toLocaleString("pt-BR", { minimumFractionDigits:2, maximumFractionDigits:2 }); }
+
 function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
   rowsPerPage = rowsPerPage || 24;
   const rows = data.rows;
@@ -3323,43 +3353,44 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
       <tr>
         <td>${r.codigo || ""}</td>
         <td>${r.dataFormat || ""}</td>
-        <td>${(r.tipo || "").substring(0,26)}</td>
-        <td>${(r.cliente || "").substring(0,42)}</td>
+        <td>${r.tipo || ""}</td>
+        <td>${r.cliente || ""}</td>
         <td>${r.cidade || ""}</td>
         <td>${r.baseShort || ""}</td>
-        <td>${(r.responsavel || "").substring(0,20)}</td>
+        <td>${r.responsavel || ""}</td>
         <td>${r.duracao || "00:00:00"}</td>
-        <td class="num">${r.distKm.toFixed(0)} km</td>
+        <td class="num">${r.distKm.toFixed(0)}</td>
         <td class="num">${fmtHrMin(r.tempoH)}</td>
-        <td class="num">${fmtBRL(r.custoFuel)}</td>
-        <td class="num">${fmtBRL(r.custoVeic)}</td>
-        <td class="num">${fmtBRL(r.custoSal)}</td>
-        <td class="num">${fmtBRL(r.custoHosp)}</td>
-        <td class="num total-col">${fmtBRL(r.custoTotal)}</td>
+        <td class="num">${nBR(r.custoFuel)}</td>
+        <td class="num">${nBR(r.custoVeic)}</td>
+        <td class="num">${nBR(r.custoSal)}</td>
+        <td class="num">${nBR(r.custoHosp)}</td>
+        <td class="num total-col">${nBR(r.custoTotal)}</td>
       </tr>`).join("");
     const footRow = isLast ? `
       <tfoot><tr>
         <td colspan="7">TOTAIS GERAIS · ${rows.length.toLocaleString("pt-BR")} registro(s)</td>
         <td>${secondsToTime(t.dur)}</td>
-        <td class="num">${fmtKm(t.km)}</td>
+        <td class="num">${Math.round(t.km).toLocaleString("pt-BR")}</td>
         <td class="num">${fmtHrMin(t.h)}</td>
-        <td class="num">${fmtBRL(t.f)}</td>
-        <td class="num">${fmtBRL(t.v)}</td>
-        <td class="num">${fmtBRL(t.s)}</td>
-        <td class="num">${fmtBRL(t.hp)}</td>
-        <td class="num total-col">${fmtBRL(t.t)}</td>
+        <td class="num">${nBR(t.f)}</td>
+        <td class="num">${nBR(t.v)}</td>
+        <td class="num">${nBR(t.s)}</td>
+        <td class="num">${nBR(t.hp)}</td>
+        <td class="num total-col">${nBR(t.t)}</td>
       </tr></tfoot>` : "";
     return `
     <div class="pdf-page notice-page" data-page-info="tabela · ${pageNum} de ${totalPages}">
       <div class="pdf-page-inner">
         ${pdfHeader(pageNum, totalPages)}
         <h3 class="pdf-section-title">Registros Detalhados — Tarefas ${chunks.length > 1 ? `(bloco ${idx+1} de ${chunks.length})` : ""}</h3>
-        <table class="pdf-table">
+        <table class="pdf-table detail">
+          <colgroup>${[6,6.3,7.5,15,8,5.5,7,5.5,4.5,5.5,5.8,5.5,5.5,4.8,6.2].map(w => `<col style="width:${w}%">`).join("")}</colgroup>
           <thead><tr>
             <th>Cód.</th><th>Data</th><th>Tipo</th><th>Cliente / Unidade</th><th>Município</th>
             <th>Base</th><th>Técnico</th><th>Duração</th><th style="text-align:right">Km</th><th style="text-align:right">Tempo</th>
-            <th style="text-align:right">Combust.</th><th style="text-align:right">Veículo</th>
-            <th style="text-align:right">Salário</th><th style="text-align:right">Hosped.</th><th style="text-align:right">Total</th>
+            <th style="text-align:right">Combust. (R$)</th><th style="text-align:right">Veículo (R$)</th>
+            <th style="text-align:right">Salário (R$)</th><th style="text-align:right">Hosped. (R$)</th><th style="text-align:right">Total (R$)</th>
           </tr></thead>
           <tbody>${bodyRows}</tbody>
           ${footRow}
@@ -3697,16 +3728,17 @@ async function downloadPdfFromPreview(){
     //    lista de registros NUNCA seja omitida do PDF final.
     $("overlayText").textContent = "Gerando tabela detalhada...";
     const data = State.reportData; const t = data.totals;
-    const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Duração","Km","Tempo","Combust.","Veículo","Salário","Hosped.","Total"];
+    const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Duração","Km","Tempo","Combust. (R$)","Veículo (R$)","Salário (R$)","Hosped. (R$)","Total (R$)"];
     const body = data.rows.map(r => [
-      r.codigo || "", r.dataFormat || "", (r.tipo || "").substring(0,22),
-      (r.cliente || "").substring(0,42), (r.cidade || ""), r.baseShort || "",
-      (r.responsavel || "").substring(0,18),
+      r.codigo || "", r.dataFormat || "", r.tipo || "",
+      r.cliente || "", (r.cidade || ""), r.baseShort || "",
+      r.responsavel || "",
       r.duracao || "00:00:00",
       r.distKm.toFixed(0), fmtHrMin(r.tempoH),
-      fmtBRL(r.custoFuel), fmtBRL(r.custoVeic), fmtBRL(r.custoSal), fmtBRL(r.custoHosp), fmtBRL(r.custoTotal)
+      nBR(r.custoFuel), nBR(r.custoVeic), nBR(r.custoSal), nBR(r.custoHosp), nBR(r.custoTotal)
     ]);
-    const footRow = ["TOTAIS GERAIS","","","","","","", secondsToTime(t.dur), fmtKm(t.km), fmtHrMin(t.h), fmtBRL(t.f), fmtBRL(t.v), fmtBRL(t.s), fmtBRL(t.hp), fmtBRL(t.t)];
+    const footRow = [{ content:`TOTAIS GERAIS · ${data.rows.length.toLocaleString("pt-BR")} registro(s)`, colSpan:7, styles:{ halign:"left" } },
+      secondsToTime(t.dur), Math.round(t.km).toLocaleString("pt-BR"), fmtHrMin(t.h), nBR(t.f), nBR(t.v), nBR(t.s), nBR(t.hp), nBR(t.t)];
 
     pdf.addPage("a4","landscape");
     let tableRenderedOk = false;
@@ -3721,32 +3753,30 @@ async function downloadPdfFromPreview(){
           // Fontes confortáveis (8.2pt) + overflow "linebreak" permitem que
           // nomes longos de unidades/tipos QUEBREM em 2 linhas em vez de
           // virar reticências ("ASSESSORIA CIENTÍFI…", "HOSPITAL MATERNIDADE SÃ…").
-          styles: { fontSize: 8.2, cellPadding: 1.6, overflow: "linebreak", lineColor: [230,233,242], lineWidth: 0.1, valign: "top" },
-          headStyles: { fillColor: [79,70,229], textColor: 255, fontSize: 8.2, halign: "left", valign: "middle", overflow: "linebreak" },
-          footStyles: { fillColor: [30,27,75], textColor: 255, fontStyle: "bold", fontSize: 8.2, overflow: "linebreak" },
+          tableWidth: 281,
+          styles: { fontSize: 7.6, cellPadding: { top:1.4, bottom:1.4, left:1.3, right:1.3 }, overflow: "linebreak", lineColor: [230,233,242], lineWidth: 0.1, valign: "top", textColor: [26,31,58] },
+          headStyles: { fillColor: [79,70,229], textColor: 255, fontSize: 7.4, halign: "left", valign: "middle", overflow: "linebreak" },
+          footStyles: { fillColor: [224,231,255], textColor: [30,27,75], fontStyle: "bold", fontSize: 7.8, overflow: "linebreak" },
           alternateRowStyles: { fillColor: [250,251,255] },
-          // Larguras em mm ajustadas para A4 landscape (297mm), com padding
-          // left+right de 16mm. Total disponível ≈ 281mm. Layout:
-          //  Cód(14) Data(20) Tipo(30) Cliente(58) Mun(26) Base(15)
-          //  Tec(22) Dur(15) Km(11)  Tempo(14) Comb(18) Veic(16) Sal(16)
-          //  Hosp(15) Total(22) = 310mm → reduzido(menores colunas numéricas)
-          // para caber em 281mm mantendo leitura confortável.
+          // A4 paisagem = 297 mm; com margens de 8 mm sobram 281 mm. As
+          // larguras abaixo somam 279 mm, então nada ultrapassa a margem
+          // direita. Valores monetários vão sem "R$" (informado no cabeçalho).
           columnStyles: {
-            0:{cellWidth:14,halign:"right"},
-            1:{cellWidth:18,halign:"center"},
-            2:{cellWidth:28,overflow:"linebreak"},
-            3:{cellWidth:54,overflow:"linebreak"},
-            4:{cellWidth:24,overflow:"linebreak"},
-            5:{cellWidth:14,halign:"center"},
-            6:{cellWidth:20,overflow:"linebreak"},
-            7:{cellWidth:13,halign:"center",overflow:"linebreak"},
-            8:{halign:"right",cellWidth:11},
+            0:{cellWidth:15,halign:"left"},
+            1:{cellWidth:17,halign:"center"},
+            2:{cellWidth:25},
+            3:{cellWidth:49},
+            4:{cellWidth:24},
+            5:{cellWidth:15,halign:"center"},
+            6:{cellWidth:22},
+            7:{cellWidth:14,halign:"center"},
+            8:{halign:"right",cellWidth:12},
             9:{halign:"right",cellWidth:14},
-            10:{halign:"right",cellWidth:18},
-            11:{halign:"right",cellWidth:16},
-            12:{halign:"right",cellWidth:16},
-            13:{halign:"right",cellWidth:14},
-            14:{halign:"right",cellWidth:22,textColor:[220,38,38],fontStyle:"bold"}
+            10:{halign:"right",cellWidth:15},
+            11:{halign:"right",cellWidth:14},
+            12:{halign:"right",cellWidth:14},
+            13:{halign:"right",cellWidth:12},
+            14:{halign:"right",cellWidth:17,textColor:[185,28,28],fontStyle:"bold"}
           },
           didDrawPage: () => {
             pdf.setFontSize(11); pdf.setTextColor(30,27,75);
