@@ -959,14 +959,20 @@ function resolveBaseAddressFromRaw(raw){
   if (!addrLoc || addrLoc.lat == null || addrLoc.lon == null) return null;
   const state = addrLoc.state || stateFromCity(addrLoc.city) || "";
   const cityLabel = addrLoc.city || shortAddress(s, 34);
+  // Se o operador informou coordenadas manuais, o endereço exibido/usado como
+  // partida deve refletir ESSE ponto (e não mais o texto da coluna Base).
+  const g = State.geoCache && State.geoCache[normalizeKey(s)];
+  const manual = !!(g && g.manual && g.lat != null && g.lon != null);
+  const coordTxt = manual ? `${g.lat.toFixed(6)}, ${g.lon.toFixed(6)}` : "";
   return {
+    manual, coordTxt,
     key:"custom",
     name: cityLabel,
     short: cityLabel.replace(/\s*\(estimado\)\s*/i, "").split(" - ")[0].slice(0, 18),
     lat: addrLoc.lat,
     lon: addrLoc.lon,
     state,
-    address: s,
+    address: manual ? (g.label || `Coordenadas informadas: ${coordTxt}`) : s,
     estimated: !!addrLoc.estimated,
     fonte: addrLoc.fonte || "cidade"
   };
@@ -2390,6 +2396,7 @@ function computeCosts(){
       ano, mes, base: base.name, baseShort: base.short,
       baseOutra: rb.outra, baseOrigem: rb.origem, baseModo: rb.mode,
       baseEnderecoUsado: base.address || base.name, baseState: base.state || "",
+      baseCoordTxt: base.manual ? base.coordTxt : "",
       baseFonte: base.key === "custom" ? (base.fonte || "cidade") : "cadastrada",
       baseKey: base.key || (base === BASES.curitiba ? "curitiba"
              : base === BASES.sulacap  ? "sulacap"
@@ -2663,11 +2670,41 @@ function aplicarCoordenadaBase(addr, texto){
   const lat = parseFloat(m[1].replace(",", ".")), lon = parseFloat(m[2].replace(",", "."));
   if (!(lat >= -34 && lat <= 6 && lon >= -74 && lon <= -34)){ toast("Coordenadas fora do Brasil — confira latitude e longitude.", "warn", 4500); return; }
   const prev = State.geoCache[normalizeKey(addr)];
-  State.geoCache[normalizeKey(addr)] = { lat, lon, city: (prev && prev.city) || (resolveAddressLocation(addr) || {}).city || "Local informado",
-    state: extractUfFromAddress(addr) || (prev && prev.state) || null, estimated:false, manual:true, ts:Date.now() };
+  // A cidade/rótulo anteriores pertenciam ao endereço antigo da planilha; não
+  // podem ser reaproveitados para o novo ponto.
+  State.geoCache[normalizeKey(addr)] = { lat, lon, city: "Local informado",
+    state: extractUfFromAddress(addr) || null, label: null, estimated:false, manual:true, ts:Date.now() };
   saveGeoCache();
   recalcAfterBaseChange();
   toast("Coordenadas da base aplicadas. Rotas sendo recalculadas.", "success", 3500);
+  reverseGeocodeBase(addr, lat, lon);
+}
+
+// Descobre o endereço real das coordenadas informadas (Nominatim reverse) e o
+// passa a exibir como endereço inicial. Sem rede, permanece o texto
+// "Coordenadas informadas: lat, lon".
+const REVERSE_ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
+async function reverseGeocodeBase(addr, lat, lon){
+  try {
+    const url = `${REVERSE_ENDPOINT}?format=jsonv2&addressdetails=1&zoom=18&accept-language=pt-BR&lat=${lat}&lon=${lon}`;
+    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
+    if (!resp.ok) return;
+    const j = await resp.json();
+    const g = State.geoCache[normalizeKey(addr)];
+    if (!g || !g.manual || g.lat !== lat || g.lon !== lon) return; // mudou enquanto consultava
+    const a = (j && j.address) || {};
+    const rua = a.road || a.pedestrian || a.footway || "";
+    const bairro = a.suburb || a.neighbourhood || a.quarter || "";
+    const cidade = a.city || a.town || a.municipality || a.village || a.city_district || "";
+    const uf = STATE_NAME_TO_UF[normalizeKey(a.state || "")] || g.state || null;
+    const partes = [rua && (a.house_number ? `${rua}, ${a.house_number}` : rua), bairro, cidade && (uf ? `${cidade} - ${uf}` : cidade)].filter(Boolean);
+    if (!partes.length) return;
+    g.label = `${partes.join(", ")} (${lat.toFixed(6)}, ${lon.toFixed(6)})`;
+    if (cidade){ g.city = uf ? `${cidade} - ${uf}` : cidade; g.state = uf; }
+    saveGeoCache();
+    computeCosts();
+    applyFilters();
+  } catch(_){ /* sem rede: mantém as coordenadas como rótulo */ }
 }
 
 function recalcAfterBaseChange(){
@@ -3147,7 +3184,7 @@ function exportRouteAudit(){
     if (r.distOneWayKm > 150) alertas.push("Distância de ida acima de 150 km — conferir");
     if (r.distOneWayKm > 0 && r.distOneWayKm < 3) alertas.push("Distância muito curta — conferir se unidade e base não coincidem");
     const dest = [r.cliente, r.endereco].filter(Boolean).join(", ");
-    const link = "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=" + encodeURIComponent(r.baseEnderecoUsado || "")
+    const link = "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=" + encodeURIComponent(r.baseCoordTxt ? r.baseCoordTxt.replace(/\s/g, "") : (r.baseEnderecoUsado || ""))
                + "&destination=" + encodeURIComponent(dest);
     return { r, n, dil, alertas, link };
   }).sort((a, b) => (b.alertas.length - a.alertas.length) || (b.r.distOneWayKm - a.r.distOneWayKm));
