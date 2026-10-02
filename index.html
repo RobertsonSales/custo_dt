@@ -519,6 +519,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 /* RESUMOS POR BASE / POR CLIENTE */
 .pdf-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .pdf-summary-card{background:#fff;border:1px solid #e6e9f2;border-radius:8px;padding:14px;}
+.pdf-table .fuel-col{font-weight:700;color:#92400e}
 .pdf-summary-card h4{font-size:12px;font-weight:700;color:#1e1b4b;margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid #eef2ff}
 
 .pdf-foot{position:absolute;bottom:14px;left:28px;right:28px;display:flex;justify-content:space-between;align-items:center;font-size:9px;color:#6b7280;border-top:1px solid #e6e9f2;padding-top:6px}
@@ -2934,12 +2935,23 @@ function collectReportData(){
   rows.forEach(r => {
     if (!r.ano || !r.mes) return;
     const k = `${r.ano}-${String(r.mes).padStart(2,"0")}`;
-    if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0, dur:0 };
+    if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0, dur:0, fuel:0 };
     byMonth[k].count++;
+    byMonth[k].fuel += r.custoFuel;
     byMonth[k].total += r.custoTotal;
     byMonth[k].km += r.distKm;
     byMonth[k].dur += (r.duracaoSeg || 0);
   });
+  // Meses marcados no filtro que não tiveram registros também aparecem (zerados)
+  const selMes = [...MS.getSelected("fltMes")];
+  if (selMes.length){
+    const selAno = [...MS.getSelected("fltAno")];
+    const anos = selAno.length ? selAno : [...new Set(rows.map(r => r.ano).filter(Boolean))];
+    anos.forEach(a => selMes.forEach(m => {
+      const k = `${a}-${String(m).padStart(2,"0")}`;
+      if (!byMonth[k]) byMonth[k] = { count:0, total:0, km:0, dur:0, fuel:0 };
+    }));
+  }
   return { rows, totals, byBase, byUF, topClients, byMonth };
 }
 
@@ -3015,6 +3027,39 @@ function buildCoverPage(data, totalPages){
     </div>`;
 }
 
+// Linhas do quadro "Bases Operacionais": bases pré-definidas efetivamente
+// usadas nos registros do relatório e, se houver, a base diferenciada de
+// cada técnico (endereço informado na coluna Base da planilha).
+function basesOperacionaisRows(data){
+  const esc = escapeHtml;
+  const usadas = {};
+  data.rows.forEach(r => {
+    if (r.baseKey === "custom") return;
+    (usadas[r.baseKey] = usadas[r.baseKey] || { n:0, addr:r.baseEnderecoUsado || r.base, nome:r.baseShort }).n++;
+  });
+  let html = Object.values(usadas).sort((a,b) => b.n - a.n).map(u =>
+    `<div class="pdf-info-row"><span class="k">${esc(u.nome)}</span><span class="v">${esc(u.addr)}<br><span style="color:#6b7280">${u.n.toLocaleString("pt-BR")} tarefa(s)</span></span></div>`).join("");
+
+  const dif = {};
+  data.rows.filter(r => r.baseOutra).forEach(r => {
+    const k = normalizeKey(r.responsavel) + "||" + normalizeKey(r.baseRaw);
+    const d = dif[k] || (dif[k] = { tec:r.responsavel, addr:(r.baseRaw||"").trim(), n:0, origem:r.baseOrigem, usada:r.baseEnderecoUsado || r.base });
+    d.n++;
+  });
+  const lista = Object.values(dif).sort((a,b) => b.n - a.n);
+  const MAX = 4;
+  lista.slice(0, MAX).forEach(d => {
+    const calc = d.origem === "planilha"
+      ? "Rotas calculadas a partir deste endereço"
+      : `Rotas calculadas a partir da base pré-definida: ${esc(shortAddress(d.usada, 60))}`;
+    html += `<div class="pdf-info-row"><span class="k">Base diferenciada<br>${esc(d.tec)}</span><span class="v">${esc(d.addr)}<br><span style="color:#6b7280">${d.n.toLocaleString("pt-BR")} tarefa(s) · ${calc}</span></span></div>`;
+  });
+  if (lista.length > MAX){
+    html += `<div class="pdf-info-row"><span class="k">Outras bases diferenciadas</span><span class="v">+${lista.length - MAX} combinação(ões) técnico/endereço</span></div>`;
+  }
+  return html || `<div class="pdf-info-row"><span class="k">Bases</span><span class="v">Sem registros no período</span></div>`;
+}
+
 function buildSummaryPage(data, pageNum, totalPages){
   const t = data.totals;
   const n = data.rows.length;
@@ -3056,10 +3101,8 @@ function buildSummaryPage(data, pageNum, totalPages){
       </div>
       <div class="pdf-info-card info-pr">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Bases Operacionais</h4>
-        <div class="pdf-info-row"><span class="k">RJ — até Nov/2025</span><span class="v">Duque de Caxias – RJ</span></div>
-        <div class="pdf-info-row"><span class="k">RJ — a partir de Dez/2025</span><span class="v">Jardim Sulacap – RJ</span></div>
-        <div class="pdf-info-row"><span class="k">PR — sempre</span><span class="v">R. Antônio Escorsin, 2.833<br>São Brás – Curitiba/PR</span></div>
-        <div class="pdf-info-row"><span class="k">Filtros aplicados</span><span class="v" style="font-size:10px">${filters.length ? filters.length+" ativos" : "Nenhum"}</span></div>
+${basesOperacionaisRows(data)}
+        <div class="pdf-info-row"><span class="k">Filtros aplicados</span><span class="v" style="font-size:10px">${filters.length ? filters.length+(filters.length===1?" ativo":" ativos") : "Nenhum"}</span></div>
       </div>
     </div>`;
 
@@ -3212,9 +3255,11 @@ function buildBreakdownPage(data, pageNum, totalPages){
         <td class="center">${MES_FULL[+m]}/${y}</td>
         <td class="num">${v.count}</td>
         <td class="num">${fmtKm(v.km)}</td>
+        <td class="num fuel-col">${fmtBRL(v.fuel || 0)}</td>
         <td class="num total-col">${fmtBRL(v.total)}</td>
       </tr>`;
   }).join("");
+  const mesFuelTotal = mesEntries.reduce((a,[,v]) => a + (v.fuel || 0), 0);
 
   return `
     <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
@@ -3233,8 +3278,9 @@ function buildBreakdownPage(data, pageNum, totalPages){
           <div class="pdf-summary-card">
             <h4>Distribuição Mensal</h4>
             <table class="pdf-table">
-              <thead><tr><th class="center">Mês/Ano</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Custo Total</th></tr></thead>
-              <tbody>${mesRows || '<tr><td colspan="4" style="text-align:center;color:#888">Sem dados mensais</td></tr>'}</tbody>
+              <thead><tr><th class="center">Mês/Ano</th><th class="num">Tarefas</th><th class="num">Distância</th><th class="num">Combustível</th><th class="num">Custo Total</th></tr></thead>
+              <tbody>${mesRows || '<tr><td colspan="5" style="text-align:center;color:#888">Sem dados mensais</td></tr>'}</tbody>
+              ${mesEntries.length > 1 ? `<tfoot><tr><td class="center">TOTAL</td><td class="num">${data.rows.length}</td><td class="num">${fmtKm(t.km)}</td><td class="num fuel-col">${fmtBRL(mesFuelTotal)}</td><td class="num total-col">${fmtBRL(t.t)}</td></tr></tfoot>` : ""}
             </table>
           </div>
         </div>
