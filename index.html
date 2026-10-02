@@ -1857,6 +1857,15 @@ function getBase(year, month, loc){
 }
 
 // Parse date "dd/mm/yyyy" or ISO
+// Hora do dia em segundos: aceita "hh:mm[:ss]", fração de dia do Excel e Date.
+function parseTimeOfDay(v){
+  if (v == null || v === "") return null;
+  if (v instanceof Date) return v.getHours()*3600 + v.getMinutes()*60 + v.getSeconds();
+  if (typeof v === "number") return v >= 0 && v < 1 ? Math.round(v*86400) : null;
+  const m = String(v).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  return m ? (+m[1])*3600 + (+m[2])*60 + (+(m[3]||0)) : null;
+}
+
 function parseDate(str){
   if (!str) return null;
   if (str instanceof Date) {
@@ -1964,20 +1973,39 @@ function processWorkbook(wb){
     return;
   }
 
+  // Mapeia as colunas pelo NOME do cabeçalho (a planilha ganhou "Data check in"
+  // e "Hora check in" antes de "Duração"; ler por posição fixa quebraria).
+  const normH = v => String(v == null ? "" : v).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\s+/g," ").trim();
+  const hdr = (aoa[headerIdx] || []).map(normH);
+  const col = (names, fallback) => {
+    for (const n of names){ const i = hdr.indexOf(n); if (i >= 0) return i; }
+    return fallback;
+  };
+  const C = {
+    codigo: col(["codigo"], 0), data: col(["data"], 1), tipo: col(["tipo da tarefa","tipo"], 2),
+    tarefaDe: col(["tarefa de"], 3), resp: col(["responsavel"], 4), cliente: col(["cliente"], 5),
+    endereco: col(["endereco"], 6), base: col(["base"], 7),
+    ciData: col(["data check in","data check-in","data checkin"], -1),
+    ciHora: col(["hora check in","hora check-in","hora checkin"], -1),
+    duracao: col(["duracao"], hdr.indexOf("data check in") >= 0 ? -1 : 8)
+  };
+  const cell = (r, i) => (i >= 0 && i < r.length) ? r[i] : "";
   const rows = [];
   for (let i = headerIdx + 1; i < aoa.length; i++){
     const r = aoa[i];
-    if (!r || !r[0]) continue;
+    if (!r || !r[C.codigo]) continue;
     rows.push({
-      codigo: String(r[0]).trim(),
-      dataRaw: r[1],
-      tipo: String(r[2]||"").trim(),
-      tarefaDe: String(r[3]||"").trim(),
-      responsavel: String(r[4]||"").trim(),
-      cliente: String(r[5]||"").trim(),
-      endereco: String(r[6]||"").trim(),
-      baseRaw: String(r[7]||"").trim(),
-      duracaoRaw: String(r[8]||"").trim()
+      codigo: String(r[C.codigo]).trim(),
+      dataRaw: cell(r, C.data),
+      tipo: String(cell(r, C.tipo)||"").trim(),
+      tarefaDe: String(cell(r, C.tarefaDe)||"").trim(),
+      responsavel: String(cell(r, C.resp)||"").trim(),
+      cliente: String(cell(r, C.cliente)||"").trim(),
+      endereco: String(cell(r, C.endereco)||"").trim(),
+      baseRaw: String(cell(r, C.base)||"").trim(),
+      checkinDataRaw: cell(r, C.ciData),
+      checkinHoraRaw: cell(r, C.ciHora),
+      duracaoRaw: String(cell(r, C.duracao)||"").trim()
     });
   }
 
@@ -2086,6 +2114,56 @@ function resolveRoadDistancesInBackground(rows){
 }
 
 // ---------- CALCULO ----------
+// Consolida as OS em DILIGÊNCIAS (visitas). Para o mesmo técnico, data de
+// check-in e unidade, as OS são ordenadas por horário. Uma OS só abre NOVA
+// diligência se o intervalo entre o fim da OS anterior (check-in + duração) e
+// o seu check-in for igual ou maior que o tempo de ida e volta da base até a
+// unidade (o técnico teria tempo de voltar à base e retornar). Caso
+// contrário, pertence à mesma visita: seu deslocamento é expurgado do
+// cálculo e ela não conta no volume de diligências.
+function consolidarVisitas(rows, p){
+  const grupos = new Map();
+  rows.forEach((r, idx) => {
+    if (r.semCusto || !r.viagemChave) return;
+    (grupos.get(r.viagemChave) || grupos.set(r.viagemChave, []).get(r.viagemChave)).push({ r, idx });
+  });
+  grupos.forEach(lista => {
+    // ordena por check-in; OS sem horário mantêm a ordem da planilha e
+    // são agregadas à visita corrente (regra conservadora)
+    lista.sort((a, b) => {
+      if (a.r.ciMs == null || b.r.ciMs == null) return a.idx - b.idx;
+      return a.r.ciMs - b.r.ciMs || a.idx - b.idx;
+    });
+    let cab = null, fimMs = null, n = 0;
+    lista.forEach(({ r }) => {
+      const base = r.viagemChave;
+      let nova = !cab;
+      if (cab && r.ciMs != null && fimMs != null){
+        const ociosoMs = r.ciMs - fimMs;
+        if (ociosoMs >= cab.tempoH * 3600 * 1000) nova = true;   // dá tempo de ir e voltar à base
+      }
+      if (nova){
+        cab = r; n++; fimMs = null;
+        r.visitaN = n;
+      } else {
+        // mesma visita: deslocamento já contabilizado na OS-cabeça
+        r.viagemDuplicada = true; r.viagemRefCodigo = cab.codigo; r.visitaN = n;
+        r.distKm = 0; r.tempoH = 0; r.distOneWayKm = 0;
+        r.custoFuel = 0; r.custoVeic = 0; r.custoSal = 0; r.custoHosp = 0; r.custoTotal = 0;
+        r.hospedagem = false; r.ehDiligencia = 0; r.motivoCat = "viagem";
+        r.obsCusto = `Viagem já lançada na tarefa ${cab.codigo}`;
+      }
+      if (r.ciMs != null) fimMs = Math.max(fimMs == null ? 0 : fimMs, r.ciMs + (r.duracaoSeg || 0) * 1000);
+      r.viagemChave = base + "#" + (r.visitaN || n);
+    });
+    if (n > 1){
+      lista.forEach(({ r }) => {
+        if (!r.viagemDuplicada) r.obsCusto = `${r.visitaN}ª diligência do dia nesta unidade (intervalo ≥ ida e volta à base)`;
+      });
+    }
+  });
+}
+
 function computeCosts(){
   const fuelPrice = parseFloat($("cfgFuelPrice").value) || 5.50;
   const consumo = parseFloat($("cfgConsumo").value) || 10;
@@ -2098,7 +2176,6 @@ function computeCosts(){
   // Controla, dentro desta chamada de computeCosts(), quais combinações de
   // técnico+data+unidade já tiveram sua viagem de ida e volta contabilizada
   // (ver regra de negócio "viagemDuplicada" abaixo).
-  const tripSeen = new Map();
   const rows = State.raw.map(r => {
     const dt = parseDate(r.dataRaw);
     const ano = dt ? dt.year : null;
@@ -2178,21 +2255,16 @@ function computeCosts(){
     // tarefa do dia para aquela unidade carrega o custo da viagem; as demais
     // do mesmo dia/unidade ficam com deslocamento zerado e uma referência ao
     // código da tarefa que já contabilizou aquele trecho.
-    const dataChave = dt ? `${dt.year}-${String(dt.month).padStart(2,"0")}-${String(dt.day).padStart(2,"0")}` : normalizeKey(r.dataRaw);
+    // Data/hora REAL do atendimento = check-in (quando informado); senão, a
+    // data da tarefa. A consolidação em visitas é feita depois, em
+    // consolidarVisitas(), comparando o intervalo entre OS com o tempo de
+    // ida e volta da base até a unidade.
+    const ciD = parseDate(r.checkinDataRaw) || dt;
+    const ciT = parseTimeOfDay(r.checkinHoraRaw);
+    const ciMs = (ciD && ciT != null) ? Date.UTC(ciD.year, ciD.month-1, ciD.day) + ciT*1000 : null;
+    const dataChave = ciD ? `${ciD.year}-${String(ciD.month).padStart(2,"0")}-${String(ciD.day).padStart(2,"0")}` : normalizeKey(r.dataRaw);
     const viagemChave = normalizeKey(r.responsavel) + "|" + dataChave + "|" + unidadeKey;
     let viagemDuplicada = false, viagemRefCodigo = null;
-    if (!semCusto){
-      const anterior = tripSeen.get(viagemChave);
-      if (anterior){
-        viagemDuplicada = true;
-        viagemRefCodigo = anterior;
-      } else {
-        tripSeen.set(viagemChave, r.codigo);
-      }
-    }
-    if (viagemDuplicada){
-      distOneWay = 0; dist = 0; tempo = 0;
-    }
     const custoZerado = semCusto || viagemDuplicada;
     // Motivo (para exibição) quando o custo é zerado por regra de negócio
     let motivoCat = "";
@@ -2238,12 +2310,19 @@ function computeCosts(){
       custoTotal: total,
       viagemDuplicada,
       viagemRefCodigo,
+      ehDiligencia: (!semCusto && !viagemDuplicada) ? 1 : 0,
       viagemChave, semCusto, motivoCat, obsCusto: motivoCat ? MOTIVOS[motivoCat] : "",
+      ciMs,
+      checkinFmt: (ciD && ciT != null)
+        ? `${String(ciD.day).padStart(2,"0")}/${String(ciD.month).padStart(2,"0")}/${ciD.year} ${String(Math.floor(ciT/3600)).padStart(2,"0")}:${String(Math.floor(ciT%3600/60)).padStart(2,"0")}`
+        : "",
       duracao: r.duracaoRaw || "00:00:00",
       duracaoSeg: timeToSeconds(r.duracaoRaw),
       dataFormat: dt ? dt.raw : (r.dataRaw||"")
     };
   });
+
+  consolidarVisitas(rows, { fuelPrice, consumo });
 
   // Opção do operador: ratear a viagem entre as tarefas do mesmo técnico,
   // dia e unidade (em vez de lançá-la inteira na primeira tarefa).
@@ -2493,7 +2572,8 @@ function updateKPIs(){
   }, {km:0,fuel:0,veic:0,sal:0,tot:0,hours:0,dur:0});
 
   $("kpiTotal").textContent = rows.length.toLocaleString("pt-BR");
-  $("kpiTotalSub").textContent = rows.length === State.rows.length ? "Todos os registros" : `de ${State.rows.length.toLocaleString("pt-BR")} totais`;
+  const dil = rows.reduce((a,r) => a + (r.ehDiligencia || 0), 0);
+  $("kpiTotalSub").textContent = `${dil.toLocaleString("pt-BR")} diligência(s) · visitas únicas`;
   $("kpiKm").textContent = fmtKm(totals.km);
   $("kpiKmSub").textContent = "Média " + (rows.length? (totals.km/rows.length).toFixed(1) : "0") + " km/tarefa";
   $("kpiFuel").textContent = fmtBRLshort(totals.fuel);
@@ -2511,6 +2591,7 @@ const COLS = [
   { key:"__actions", label:"", w:44, align:"center", isAction:true },
   { key:"codigo", label:"Código", w:90 },
   { key:"dataFormat", label:"Data", w:90 },
+  { key:"checkinFmt", label:"Check-in", w:130 },
   { key:"tipo", label:"Tipo da tarefa", w:170 },
   { key:"cliente", label:"Cliente (Unidade)", w:260 },
   { key:"endereco", label:"Endereço", w:280 },
@@ -2656,7 +2737,7 @@ function renderTechDashboard(){
     const key = r.responsavel || "— não informado";
     if (!map[key]) map[key] = { count:0, km:0, h:0, dur:0, total:0, tipos:{} };
     const m = map[key];
-    m.count++; m.km += r.distKm; m.h += r.tempoH; m.dur += (r.duracaoSeg || 0); m.total += r.custoTotal;
+    m.count++; m.dil = (m.dil || 0) + (r.ehDiligencia || 0); m.km += r.distKm; m.h += r.tempoH; m.dur += (r.duracaoSeg || 0); m.total += r.custoTotal;
     const tp = r.tipo || "—";
     m.tipos[tp] = (m.tipos[tp]||0) + 1;
   });
@@ -2698,7 +2779,8 @@ function renderTechDashboard(){
   </tr>`;
   html += "</tbody></table>";
   wrap.innerHTML = html;
-  $("techInfo").textContent = `${list.length} técnico(s) · ${g.count.toLocaleString("pt-BR")} tarefa(s)`;
+  const gDil = list.reduce((a,[,v]) => a + (v.dil || 0), 0);
+  $("techInfo").textContent = `${list.length} técnico(s) · ${g.count.toLocaleString("pt-BR")} tarefa(s) · ${gDil.toLocaleString("pt-BR")} diligência(s)`;
 }
 
 // ---------- CHARTS ----------
@@ -2826,14 +2908,16 @@ function renderCharts(){
   const techMap = {};
   rows.forEach(r => {
     const key = r.responsavel || "Não informado";
-    if (!techMap[key]) techMap[key] = { total: 0, count: 0 };
+    if (!techMap[key]) techMap[key] = { total: 0, count: 0, os: 0 };
     techMap[key].total += r.custoTotal;
-    techMap[key].count += 1;
+    techMap[key].count += r.ehDiligencia || 0;   // visitas únicas (OS da mesma unidade/dia são consolidadas)
+    techMap[key].os += 1;
   });
   const techSorted = Object.entries(techMap).sort((a,b)=>b[1].total-a[1].total);
   const techLabels = techSorted.map(t => t[0]);
   const techCostData = techSorted.map(t => t[1].total);
   const techCountData = techSorted.map(t => t[1].count);
+  const techOsData = techSorted.map(t => t[1].os);
 
   if (State.chartTech) State.chartTech.destroy();
   State.chartTech = new Chart($("chartTech"), {
@@ -2851,7 +2935,7 @@ function renderCharts(){
           order: 2
         },
         {
-          label: "Volume de Diligências",
+          label: "Volume de Diligências (visitas únicas)",
           data: techCountData,
           backgroundColor: "#06b6d4",
           borderRadius: [8, 8, 0, 0],
@@ -2876,7 +2960,7 @@ function renderCharts(){
               if (ctx.dataset.yAxisID === "y") {
                 return ctx.dataset.label + ": " + fmtBRL(ctx.parsed.y);
               } else {
-                return ctx.dataset.label + ": " + ctx.parsed.y + " tarefa(s)";
+                return ctx.dataset.label + ": " + ctx.parsed.y + " diligência(s) · " + techOsData[ctx.dataIndex] + " OS no período";
               }
             }
           }
@@ -2906,13 +2990,13 @@ function renderCharts(){
 // ---------- EXPORT ----------
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base","Observação do custo"];
+  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base","Observação do custo","Check-in"];
   const rows = State.filtered.map(r => [
     r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel, r.duracao,
     r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
     r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2),
     r.baseEnderecoUsado || "", r.baseOrigem === "planilha" ? "Endereço da planilha" : (r.baseOrigem === "legado" ? "Regra por estado/data" : "Base pré-definida"),
-    r.obsCusto || ""
+    r.obsCusto || "", r.checkinFmt || ""
   ]);
   const csvLine = arr => arr.map(v => {
     const s = String(v??"");
