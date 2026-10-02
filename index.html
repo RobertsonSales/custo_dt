@@ -185,6 +185,7 @@ html[data-theme="dark"] .badge.bdg-period.out{background:#3b2410;color:#fdba74}
 .base-mode b{display:block;font-size:13px;color:var(--text)}
 .base-mode span{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
 .base-tech-sel{border:1px solid var(--border-strong);background:var(--panel);color:var(--text);border-radius:8px;padding:5px 8px;font:inherit;font-size:12px}
+.zero-why{display:block;margin-top:3px;font-size:10px;font-weight:600;color:var(--muted);white-space:normal;line-height:1.25;max-width:150px;margin-left:auto}
 .base-addr{font-size:12px;color:var(--text-soft);line-height:1.45}
 
 /* KPI GRID */
@@ -685,7 +686,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
   <!-- BASE DE PARTIDA DAS ROTAS -->
   <div class="panel" id="basePanel" style="display:none">
     <div class="panel-head">
-      <h3><span class="dot"></span> Base de partida das rotas</h3>
+      <h3><span class="dot"></span> Critérios de rota e custo</h3>
       <span class="small-info" id="baseInfo"></span>
     </div>
     <div class="base-modes">
@@ -698,6 +699,11 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
         <input type="radio" name="baseMode" value="predefinida" />
         <div><b>Somente bases pré-definidas</b>
           <span>Caxias, Sulacap, Curitiba e Campos. Um endereço diferente é substituído pela base pré-definida que o técnico mais usa na planilha (ou, se não houver, a mais próxima).</span></div>
+      </label>
+      <label class="base-mode" style="flex-basis:100%">
+        <input type="checkbox" id="chkRatearViagem" />
+        <div><b>Ratear a viagem entre as tarefas do mesmo técnico, dia e unidade</b>
+          <span>Por padrão a viagem é lançada inteira na primeira tarefa e as demais ficam com custo zero, pois o deslocamento ocorreu uma só vez. Com o rateio, km, tempo e custos são divididos igualmente entre elas; o total do período não muda.</span></div>
       </label>
     </div>
   </div>
@@ -1401,6 +1407,7 @@ const State = {
   chartCli: null,
   chartTech: null,
   fileName: null,
+  ratearViagem: false,    // true = divide a viagem do dia entre as tarefas da mesma unidade
   baseMode: "planilha",   // "planilha" = endereço da coluna Base; "predefinida" = só bases fixas
   geoCache: {}      // cache de coordenadas reais por endereço (normalizado) — ver GEO_CACHE_KEY
 };
@@ -2187,6 +2194,20 @@ function computeCosts(){
       distOneWay = 0; dist = 0; tempo = 0;
     }
     const custoZerado = semCusto || viagemDuplicada;
+    // Motivo (para exibição) quando o custo é zerado por regra de negócio
+    let motivoCat = "";
+    if (isRemoto) motivoCat = "remoto";
+    else if (servicoNaBase) motivoCat = "base";
+    else if (isClienteLabmedic) motivoCat = "labmedic";
+    else if (mesmaBase) motivoCat = "mesmaBase";
+    else if (viagemDuplicada) motivoCat = "viagem";
+    const MOTIVOS = {
+      remoto:"Atendimento remoto — sem deslocamento",
+      base:"Serviço na base (bancada/interno)",
+      labmedic:"Cliente LABMEDIC — atividade interna",
+      mesmaBase:"Unidade coincide com a base",
+      viagem:`Viagem já lançada na tarefa ${viagemRefCodigo || "—"}`
+    };
     const fuel = custoZerado ? 0 : (dist / consumo) * fuelPrice;
     const veic = custoZerado ? 0 : veicCost * (tempo / HORAS_MES);
     const sal = custoZerado ? 0 : salCost * (tempo / HORAS_MES);
@@ -2217,11 +2238,37 @@ function computeCosts(){
       custoTotal: total,
       viagemDuplicada,
       viagemRefCodigo,
+      viagemChave, semCusto, motivoCat, obsCusto: motivoCat ? MOTIVOS[motivoCat] : "",
       duracao: r.duracaoRaw || "00:00:00",
       duracaoSeg: timeToSeconds(r.duracaoRaw),
       dataFormat: dt ? dt.raw : (r.dataRaw||"")
     };
   });
+
+  // Opção do operador: ratear a viagem entre as tarefas do mesmo técnico,
+  // dia e unidade (em vez de lançá-la inteira na primeira tarefa).
+  if (State.ratearViagem){
+    const grupos = new Map();
+    rows.forEach(r => {
+      if (!r.viagemChave || r.semCusto) return;
+      if (!grupos.has(r.viagemChave)) grupos.set(r.viagemChave, []);
+      grupos.get(r.viagemChave).push(r);
+    });
+    grupos.forEach(g => {
+      const head = g.find(x => !x.viagemDuplicada);
+      if (g.length < 2 || !head) return;
+      const n = g.length;
+      const src = { distKm:head.distKm, tempoH:head.tempoH, distOneWayKm:head.distOneWayKm,
+        custoFuel:head.custoFuel, custoVeic:head.custoVeic, custoSal:head.custoSal,
+        custoHosp:head.custoHosp, custoTotal:head.custoTotal };
+      g.forEach(x => {
+        Object.keys(src).forEach(k => { x[k] = src[k] / (k === "distOneWayKm" ? 1 : n); });
+        x.hospedagem = x.custoHosp > 0;
+        x.viagemDuplicada = false; x.motivoCat = "";
+        x.obsCusto = `Viagem do dia rateada entre ${n} tarefas (1/${n})`;
+      });
+    });
+  }
 
   State.rows = rows;
 }
@@ -2540,6 +2587,9 @@ function renderTable(){
       if (c.key === "tipo"){
         v = `<span class="badge bdg-type">${v}</span>`;
       }
+      if (c.key === "custoTotal" && r.obsCusto){
+        v = `${v}<span class="zero-why" title="${r.obsCusto.replace(/"/g,"&quot;")}">${r.obsCusto}</span>`;
+      }
       html += `<td class="${cls}" style="${align}">${v}</td>`;
     });
     html += "</tr>";
@@ -2856,12 +2906,13 @@ function renderCharts(){
 // ---------- EXPORT ----------
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base"];
+  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base","Observação do custo"];
   const rows = State.filtered.map(r => [
     r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel, r.duracao,
     r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
     r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2),
-    r.baseEnderecoUsado || "", r.baseOrigem === "planilha" ? "Endereço da planilha" : (r.baseOrigem === "legado" ? "Regra por estado/data" : "Base pré-definida")
+    r.baseEnderecoUsado || "", r.baseOrigem === "planilha" ? "Endereço da planilha" : (r.baseOrigem === "legado" ? "Regra por estado/data" : "Base pré-definida"),
+    r.obsCusto || ""
   ]);
   const csvLine = arr => arr.map(v => {
     const s = String(v??"");
@@ -3113,6 +3164,19 @@ ${basesOperacionaisRows(data)}
       (São Brás), totalizando ${fmtKm(ufPR.km)} e ${fmtBRL(ufPR.total)}. As demais ${ufRJ.count} tarefas no RJ utilizam Caxias/Sulacap conforme o período.
     </div>` : "";
 
+  // Nota: tarefas com custo zero por regra de negócio
+  const zeroCat = {};
+  data.rows.forEach(r => { if (r.motivoCat) zeroCat[r.motivoCat] = (zeroCat[r.motivoCat] || 0) + 1; });
+  const ZLBL = { viagem:"mesma unidade já atendida no dia pelo mesmo técnico (viagem lançada uma única vez)",
+    remoto:"atendimento remoto", base:"serviço realizado na base (bancada/interno)",
+    labmedic:"cliente LABMEDIC (atividade interna)", mesmaBase:"unidade coincide com a base" };
+  const zeroTxt = Object.keys(ZLBL).filter(k => zeroCat[k]).map(k => `${zeroCat[k].toLocaleString("pt-BR")} — ${ZLBL[k]}`).join("; ");
+  const zeroNote = zeroTxt ? `
+    <div class="pdf-explainer">
+      <strong>Tarefas com custo zero por regra de negócio:</strong> ${zeroTxt}.
+      ${State.ratearViagem ? "A viagem do dia está rateada entre as tarefas da mesma unidade." : ""}
+    </div>` : "";
+
   return `
     <div class="pdf-page" data-page-info="${pageNum} de ${totalPages}">
       <div class="pdf-page-inner">
@@ -3120,6 +3184,7 @@ ${basesOperacionaisRows(data)}
         <h3 class="pdf-section-title">Sumário Executivo</h3>
         ${kpisHtml}
         ${explainer}
+        ${zeroNote}
         ${infoHtml}
         ${pdfFooter()}
       </div>
@@ -3715,6 +3780,13 @@ function bindEvents(){
     }
   });
   $("btnTheme").addEventListener("click", toggleTheme);
+  $("chkRatearViagem").addEventListener("change", e => {
+    State.ratearViagem = e.target.checked;
+    if (!State.raw.length) return;
+    computeCosts();
+    applyFilters();
+    toast(State.ratearViagem ? "Viagem do dia rateada entre as tarefas da mesma unidade." : "Viagem lançada integralmente na primeira tarefa do dia/unidade.", "info", 3000);
+  });
   document.querySelectorAll('input[name="baseMode"]').forEach(el => el.addEventListener("change", () => {
     if (!el.checked || State.baseMode === el.value) return;
     State.baseMode = el.value;
