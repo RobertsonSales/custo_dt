@@ -609,6 +609,9 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         CSV
       </button>
+      <button class="btn btn-accent" id="btnAuditRoutes" disabled title="Lista cada par base→unidade com fonte da localização e da distância, alertas e link para conferir no Google Maps">
+        Auditar rotas
+      </button>
       <button class="btn btn-primary" id="btnExportPDF" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Exportar PDF
@@ -712,6 +715,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
           <span>Por padrão a viagem é lançada inteira na primeira tarefa e as demais ficam com custo zero, pois o deslocamento ocorreu uma só vez. Com o rateio, km, tempo e custos são divididos igualmente entre elas; o total do período não muda.</span></div>
       </label>
     </div>
+      <div class="table-wrap" id="baseAddrWrap"></div>
   </div>
 
   <!-- KPIs -->
@@ -963,7 +967,8 @@ function resolveBaseAddressFromRaw(raw){
     lon: addrLoc.lon,
     state,
     address: s,
-    estimated: !!addrLoc.estimated
+    estimated: !!addrLoc.estimated,
+    fonte: addrLoc.fonte || "cidade"
   };
 }
 // Logradouros que identificam, sem ambiguidade, o endereço de cada base
@@ -1042,7 +1047,7 @@ function resolveRowBase(r, dt, loc){
       base = usualPredefinedBase(r.responsavel) || (custom ? nearestPredefinedBase(custom) : legacy());
       origem = "predefinida-aproximada";
     } else if (custom){
-      base = { ...custom, short: "Outra: " + String(custom.short || custom.name).slice(0, 18) };
+      base = { ...custom, short: "Outra: " + String(custom.short || custom.name).slice(0, 18) + (custom.fonte === "geo" ? "" : " *") };
       origem = "planilha";
     } else {
       base = legacy(); origem = "legado";
@@ -1534,29 +1539,85 @@ async function resolveRoadDistances(rows, onProgress){
 // Retorna {lat, lon, city, state} em caso de sucesso, ou null em caso de
 // falha (sem conexão, endereço não encontrado, serviço indisponível etc.).
 // Nesses casos o cálculo cai de volta na heurística existente (cidade/UF).
-async function geocodeOne(address){
-  const q = `${address}, Brasil`;
+// Gera consultas "limpas" a partir do endereço da planilha. Textos como
+// "RUA X, 36 – BRITADOR (STO ALEIXO) – MAGÉ RJ" (travessões, parênteses,
+// abreviações, CEP, "s/nº", "Casa Fundos") raramente são encontrados pelo
+// serviço de geocodificação; por isso tenta-se, em ordem: rua + número +
+// cidade; rua + número + bairro + cidade; rua + cidade (sem número).
+function buildGeocodeVariants(raw){
+  const orig = String(raw || "").trim();
+  const uf = extractUfFromAddress(orig);
+  let t = orig.replace(/[–—]/g, ",").replace(/\s-\s/g, ", ")
+    .replace(/\bCEP\b[:\s]*\d{5}-?\d{3}/gi, "").replace(/\b\d{5}-\d{3}\b/g, "")
+    .replace(/\(([^)]*)\)/g, ", $1, ")
+    .replace(/\bS\/?N[º°o]?(?=[\s,]|$)/gi, "").replace(/\bn[º°]\s*/gi, "")
+    .replace(/\bSTO\.?(?=\s)/gi, "Santo").replace(/\bSTA\.?(?=\s)/gi, "Santa").replace(/\bPRQ\.?(?=\s)/gi, "Parque")
+    .replace(/\bCasa\s+Fundos\b/gi, "").replace(/\bBrasil\b/gi, "");
+  const parts = t.split(",").map(x => x.trim()).filter(Boolean);
+  if (!parts.length) return [orig];
+  if (uf){
+    const last = parts[parts.length - 1].replace(new RegExp("\\s*\\b" + uf + "\\b\\s*$", "i"), "").trim();
+    if (last) parts[parts.length - 1] = last; else parts.pop();
+  }
+  if (parts.length < 2) return [orig];
+  const street = parts[0], city = parts[parts.length - 1];
+  const numIdx = parts.findIndex((x, i) => i > 0 && i < parts.length - 1 && /^\d+[A-Za-z]?$/.test(x));
+  const number = numIdx > 0 ? parts[numIdx] : null;
+  const bairros = parts.slice(1, -1).filter(x => x !== number);
+  const tail = [city, uf].filter(Boolean).join(", ");
+  const out = [];
+  if (number) out.push({ q:[street, number, tail].join(", "), precisao:"endereço" });
+  if (number && bairros.length) out.push({ q:[street, number, bairros.join(", "), tail].join(", "), precisao:"endereço" });
+  if (!number && bairros.length) out.push({ q:[street, bairros[0], tail].join(", "), precisao:"rua" });
+  out.push({ q:[street, tail].join(", "), precisao:"rua" });
+  const seen = new Set();
+  return out.filter(v => !seen.has(v.q) && seen.add(v.q)).slice(0, 3);
+}
+
+// Uma consulta ao Nominatim. Retorna objeto (achou), null (sem resultado
+// aceitável) ou undefined (falha de rede/serviço — não vale tentar variantes).
+async function geocodeQuery(queryText, originalAddress){
+  const q = `${queryText}, Brasil`;
   const url = `${GEOCODE_ENDPOINT}?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`;
   try {
     const resp = await fetch(url, { headers: { "Accept":"application/json" } });
-    if (!resp.ok) return null;
+    if (!resp.ok) return undefined;
     const data = await resp.json();
     if (!data || !data.length) return null;
     const hit = data[0];
     const lat = parseFloat(hit.lat), lon = parseFloat(hit.lon);
     if (!isFinite(lat) || !isFinite(lon)) return null;
+    // Validação de sanidade: o geocodificador devolve o "melhor palpite", que
+    // pode ser uma rua homônima em outro município. Rejeita o resultado se
+    // ele cair longe do município citado no endereço ou em outra UF.
+    const fc = originalAddress.indexOf(",");
+    const dica = matchCityHint(normalizeKey(fc !== -1 ? originalAddress.slice(fc + 1) : originalAddress));
+    if (dica && haversine(lat, lon, dica.lat, dica.lon) > 70) return null;
     const addr = hit.address || {};
     const cityName = addr.city || addr.town || addr.municipality || addr.village || addr.suburb || null;
     const stateNameKey = normalizeKey(addr.state || "");
-    const uf = STATE_NAME_TO_UF[stateNameKey] || extractUfFromAddress(address) || null;
+    const uf = STATE_NAME_TO_UF[stateNameKey] || extractUfFromAddress(originalAddress) || null;
+    const ufEnd = extractUfFromAddress(originalAddress);
+    if (ufEnd && STATE_NAME_TO_UF[stateNameKey] && ufEnd !== STATE_NAME_TO_UF[stateNameKey]) return null;
     return {
       lat, lon,
       city: cityName ? `${cityName}${uf ? " - "+uf : ""}` : (uf ? ufFallbackLocation(uf)?.city?.replace(" (estimado)","") : null),
       state: uf
     };
   } catch(_){
-    return null; // sem internet, CORS bloqueado, timeout, etc.
+    return undefined; // sem internet, CORS bloqueado, timeout, etc.
   }
+}
+
+async function geocodeOne(address){
+  const variantes = buildGeocodeVariants(address);
+  for (let i = 0; i < variantes.length; i++){
+    const r = await geocodeQuery(variantes[i].q, address);
+    if (r) return { ...r, precisao: variantes[i].precisao };
+    if (r === undefined) return null;
+    if (i < variantes.length - 1) await new Promise(res => setTimeout(res, GEOCODE_DELAY_MS));
+  }
+  return null;
 }
 
 // Geocodifica em lote (sequencial, respeitando limite de requisições) todos os
@@ -1732,7 +1793,7 @@ function resolveAddressLocation(address){
   // fonte de verdade para o cálculo de distância entre partida e destino.
   const geo = State.geoCache && State.geoCache[upperA];
   if (geo && geo.lat != null && geo.lon != null){
-    return { city: geo.city || shortAddress(addr, 60), lat: geo.lat, lon: geo.lon, state: geo.state || null, estimated:false };
+    return { city: geo.city || shortAddress(addr, 60), lat: geo.lat, lon: geo.lon, state: geo.state || null, estimated:false, fonte:"geo" };
   }
 
   const ufFromAddr = extractUfFromAddress(addr);
@@ -1752,7 +1813,7 @@ function resolveAddressLocation(address){
 
   const hint = matchCityHint(upperForHint);
   if (hint){
-    const found = { ...hint };
+    const found = { ...hint, fonte:"cidade" };
     if (ufFromAddr) found.state = ufFromAddr;
     return found;
   }
@@ -1761,7 +1822,7 @@ function resolveAddressLocation(address){
     const cityName = extractCityBeforeUf(addr, ufFromAddr);
     const fallback = ufFallbackLocation(ufFromAddr);
     if (cityName && fallback){
-      return { city:`${cityName} - ${ufFromAddr} (estimado)`, lat:fallback.lat, lon:fallback.lon, state:ufFromAddr, estimated:true };
+      return { city:`${cityName} - ${ufFromAddr} (estimado)`, lat:fallback.lat, lon:fallback.lon, state:ufFromAddr, estimated:true, fonte:"uf" };
     }
     return fallback || { state:ufFromAddr };
   }
@@ -1779,13 +1840,13 @@ function resolveLocation(clientName, address){
 
   // 1) Localização base pelo nome do cliente (mapa manual)
   let base = null;
-  if (cli && CLIENT_MAP[cli]) base = { ...CLIENT_MAP[cli] };
+  if (cli && CLIENT_MAP[cli]) base = { ...CLIENT_MAP[cli], fonte:"mapa" };
 
   // 2) Heurística do nome (palavras-chave de cidade/bairro)
   if (!base && cli){
     const upper = normalizeKey(cli);
     const hint = matchCityHint(upper);
-    if (hint) base = { ...hint };
+    if (hint) base = { ...hint, fonte:"cidade" };
   }
 
   // 3) REFINAMENTO PELO ENDEREÇO
@@ -1797,8 +1858,16 @@ function resolveLocation(clientName, address){
   let finalLoc = null;
   if (base && addrLoc){
     if (addrLoc.lat != null){
-      // endereço trouxe cidade reconhecível → prevalece
-      finalLoc = { ...base, ...addrLoc };
+      // endereço trouxe cidade reconhecível → prevalece, EXCETO quando o
+      // endereço só foi aproximado pelo centro do município e a unidade tem
+      // posição curada no mapa manual, na mesma região (<= 40 km): a posição
+      // curada é bem mais precisa que o centro do município.
+      if (cli && CLIENT_MAP[cli] && addrLoc.fonte !== "geo"
+          && haversine(base.lat, base.lon, addrLoc.lat, addrLoc.lon) <= 40){
+        finalLoc = { ...addrLoc, ...base, state: addrLoc.state || base.state, fonte:"mapa" };
+      } else {
+        finalLoc = { ...base, ...addrLoc };
+      }
     } else if (addrLoc.state){
       // endereço trouxe somente UF
       // A UF do endereço é a fonte de verdade. Inferimos também a UF da base
@@ -1835,7 +1904,7 @@ function resolveLocation(clientName, address){
   }
 
   if (!finalLoc){
-    finalLoc = { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true };
+    finalLoc = { city:"Rio de Janeiro - RJ (estimado)", lat:-22.9099, lon:-43.1818, estimated:true, fonte:"generico" };
   }
   return finalLoc;
 }
@@ -2053,6 +2122,7 @@ function processWorkbook(wb){
   toast(rows.length+" registros importados com sucesso.", "success");
   $("btnReload").disabled = false;
   $("btnExportCSV").disabled = false;
+  $("btnAuditRoutes").disabled = false;
   $("btnExportPDF").disabled = false;
   $("chartsPanel").style.display = "block";
   $("techPanel").style.display = "block";
@@ -2242,7 +2312,7 @@ function computeCosts(){
     const unidadeKey = enderecoKey ? (clienteKey + " || " + enderecoKey) : clienteKey;
     // Rótulo amigável da unidade (cliente + município/endereço resumido)
     const unidadeLabel = r.cliente + (r.endereco ? " — " + shortAddress(r.endereco, 50) : "");
-    let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false;
+    let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false, distFonte = "";
     let cidade = "—";
     if (loc){
       const distRetaBase = haversine(base.lat, base.lon, loc.lat, loc.lon);
@@ -2259,6 +2329,7 @@ function computeCosts(){
         // aproximação por linha reta + 35% (empiricamente mais próxima das
         // rotas reais brasileiras do que os +25% anteriores).
         const roadKm = getCachedRoadDistanceKm(base.lat, base.lon, loc.lat, loc.lon);
+        distFonte = roadKm != null ? "rodoviária (OSRM)" : "estimada (linha reta ×1,35)";
         distOneWay = roadKm != null ? roadKm : distRetaBase * 1.35;
         dist = distOneWay * 2; // ida e volta
         tempo = dist / 70;
@@ -2319,6 +2390,7 @@ function computeCosts(){
       ano, mes, base: base.name, baseShort: base.short,
       baseOutra: rb.outra, baseOrigem: rb.origem, baseModo: rb.mode,
       baseEnderecoUsado: base.address || base.name, baseState: base.state || "",
+      baseFonte: base.key === "custom" ? (base.fonte || "cidade") : "cadastrada",
       baseKey: base.key || (base === BASES.curitiba ? "curitiba"
              : base === BASES.sulacap  ? "sulacap"
              : base === BASES.campos   ? "campos"
@@ -2339,6 +2411,8 @@ function computeCosts(){
       viagemRefCodigo,
       ehDiligencia: (!semCusto && !viagemDuplicada) ? 1 : 0,
       viagemChave, semCusto, motivoCat, obsCusto: motivoCat ? MOTIVOS[motivoCat] : "",
+      baseLat: base.lat, baseLon: base.lon, locLat: loc ? loc.lat : null, locLon: loc ? loc.lon : null,
+      locFonte: loc ? (loc.fonte || "cidade") : "", distFonte,
       ciMs,
       checkinFmt: (ciD && ciT != null)
         ? `${String(ciD.day).padStart(2,"0")}/${String(ciD.month).padStart(2,"0")}/${ciD.year} ${String(Math.floor(ciT/3600)).padStart(2,"0")}:${String(Math.floor(ciT%3600/60)).padStart(2,"0")}`
@@ -2554,11 +2628,46 @@ function renderBasePanel(){
   const el = $("baseInfo");
   if (!el) return;
   const fAno = MS.getSelected("fltAno"), fMes = MS.getSelected("fltMes");
-  const n = State.rows.filter(r => r.baseOutra &&
-    (!fAno.size || fAno.has(String(r.ano))) && (!fMes.size || fMes.has(String(r.mes)))).length;
-  el.textContent = n
-    ? `${n.toLocaleString("pt-BR")} registro(s) do período com endereço de base diferente das pré-definidas`
+  const doPeriodo = State.rows.filter(r => r.baseOutra &&
+    (!fAno.size || fAno.has(String(r.ano))) && (!fMes.size || fMes.has(String(r.mes))));
+  el.textContent = doPeriodo.length
+    ? `${doPeriodo.length.toLocaleString("pt-BR")} registro(s) do período com endereço de base diferente das pré-definidas`
     : "Nenhum endereço de base diferente das pré-definidas no período";
+
+  const wrap = $("baseAddrWrap");
+  if (!wrap) return;
+  const enderecos = new Map();
+  doPeriodo.forEach(r => { const a = (r.baseRaw || "").trim(); enderecos.set(a, (enderecos.get(a) || 0) + 1); });
+  if (!enderecos.size){ wrap.innerHTML = ""; return; }
+  const esc = v => String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+  let html = '<table><thead><tr><th>Endereço de base informado na planilha</th><th style="text-align:right">Registros</th><th>Localização usada no cálculo</th><th>Coordenadas (copie do Google Maps)</th></tr></thead><tbody>';
+  [...enderecos.entries()].forEach(([addr, n]) => {
+    const g = State.geoCache[normalizeKey(addr)];
+    const loc = resolveAddressLocation(addr);
+    let status;
+    if (g && g.manual) status = '<span class="badge bdg-period">Coordenadas informadas</span>';
+    else if (loc && loc.fonte === "geo") status = `<span class="badge bdg-period">Endereço localizado${g && g.precisao === "rua" ? " (nível da rua)" : ""}</span>`;
+    else status = '<span class="badge bdg-period out">Centro do município (aproximado)</span>';
+    html += `<tr><td class="base-addr">${esc(addr)}</td><td style="text-align:right">${n.toLocaleString("pt-BR")}</td><td>${status}</td>
+      <td><input class="base-tech-sel base-coord" data-addr="${esc(addr)}" placeholder="-22.6358, -43.1089" value="${g && g.manual ? g.lat.toFixed(6) + ", " + g.lon.toFixed(6) : ""}" style="min-width:190px" />
+      <button class="btn" data-base-apply="${esc(addr)}" style="padding:5px 10px;font-size:12px">Aplicar</button>
+      ${g && g.manual ? `<button class="btn" data-base-clear="${esc(addr)}" style="padding:5px 10px;font-size:12px">Remover</button>` : ""}</td></tr>`;
+  });
+  html += `</tbody></table><div style="margin-top:10px"><button class="btn" id="btnRelocBase" style="padding:6px 12px;font-size:12px">Tentar localizar os endereços novamente</button></div>`;
+  wrap.innerHTML = html;
+}
+
+function aplicarCoordenadaBase(addr, texto){
+  const m = String(texto || "").replace(/[−–]/g, "-").match(/(-?\d+(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!m){ toast("Informe as coordenadas no formato: -22.6358, -43.1089", "warn", 4000); return; }
+  const lat = parseFloat(m[1].replace(",", ".")), lon = parseFloat(m[2].replace(",", "."));
+  if (!(lat >= -34 && lat <= 6 && lon >= -74 && lon <= -34)){ toast("Coordenadas fora do Brasil — confira latitude e longitude.", "warn", 4500); return; }
+  const prev = State.geoCache[normalizeKey(addr)];
+  State.geoCache[normalizeKey(addr)] = { lat, lon, city: (prev && prev.city) || (resolveAddressLocation(addr) || {}).city || "Local informado",
+    state: extractUfFromAddress(addr) || (prev && prev.state) || null, estimated:false, manual:true, ts:Date.now() };
+  saveGeoCache();
+  recalcAfterBaseChange();
+  toast("Coordenadas da base aplicadas. Rotas sendo recalculadas.", "success", 3500);
 }
 
 function recalcAfterBaseChange(){
@@ -2626,7 +2735,7 @@ const COLS = [
   { key:"baseShort", label:"Base", w:80 },
   { key:"responsavel", label:"Técnico", w:140 },
   { key:"duracao", label:"Duração", w:90, align:"right" },
-  { key:"distKm", label:"Dist. (km)", w:90, align:"right", fmt:fmtKm },
+  { key:"distKm", label:"Dist. ida+volta (km)", w:110, align:"right", fmt:fmtKm },
   { key:"tempoH", label:"Tempo", w:100, align:"right", fmt:v=>fmtHrMin(v) },
   { key:"custoFuel", label:"Combustível", w:110, align:"right", fmt:fmtBRL, cls:"money" },
   { key:"custoVeic", label:"Veículo (Rateio)", w:130, align:"right", fmt:fmtBRL, cls:"money" },
@@ -3015,6 +3124,48 @@ function renderCharts(){
 }
 
 // ---------- EXPORT ----------
+// Auditoria das rotas: um registro por par base→unidade (dentro dos filtros),
+// com a distância usada no cálculo, de onde vieram a localização e a
+// distância, alertas de baixa confiança e um link do Google Maps para
+// conferência manual. As distâncias do app são de IDA; o custo usa ida e volta.
+function exportRouteAudit(){
+  const rows = State.filtered.filter(r => !r.semCusto);
+  if (!rows.length){ toast("Nada para auditar nos filtros atuais.", "warn"); return; }
+  const pares = new Map();
+  rows.forEach(r => {
+    const k = [r.baseEnderecoUsado, r.unidadeKey].join("##");
+    let p = pares.get(k);
+    if (!p) p = pares.set(k, { r, n:0, dil:0 }).get(k);
+    p.n++; p.dil += r.ehDiligencia || 0;
+  });
+  const LBL = { geo:"endereço geocodificado", mapa:"posição curada (mapa manual)", cidade:"CENTRO DO MUNICÍPIO (aprox.)", uf:"CENTRO DA UF (aprox.)", generico:"COORDENADA GENÉRICA (aprox.)" };
+  const lista = [...pares.values()].map(({ r, n, dil }) => {
+    const alertas = [];
+    if (["cidade","uf","generico"].includes(r.locFonte)) alertas.push("Unidade localizada apenas pelo centro do município — distância pode divergir muito do real");
+    if (/estimada/.test(r.distFonte)) alertas.push("Distância por linha reta ×1,35 (rota rodoviária ainda não obtida)");
+    if (r.baseFonte && r.baseFonte !== "geo" && r.baseFonte !== "cadastrada") alertas.unshift("BASE localizada só pelo centro do município — informe as coordenadas no painel \"Critérios de rota e custo\"");
+    if (r.distOneWayKm > 150) alertas.push("Distância de ida acima de 150 km — conferir");
+    if (r.distOneWayKm > 0 && r.distOneWayKm < 3) alertas.push("Distância muito curta — conferir se unidade e base não coincidem");
+    const dest = [r.cliente, r.endereco].filter(Boolean).join(", ");
+    const link = "https://www.google.com/maps/dir/?api=1&travelmode=driving&origin=" + encodeURIComponent(r.baseEnderecoUsado || "")
+               + "&destination=" + encodeURIComponent(dest);
+    return { r, n, dil, alertas, link };
+  }).sort((a, b) => (b.alertas.length - a.alertas.length) || (b.r.distOneWayKm - a.r.distOneWayKm));
+  const headers = ["Alertas","Base (endereço usado)","Unidade","Endereço da unidade","Município considerado","Fonte da localização","Fonte da distância","Distância de IDA usada (km)","Ida e volta usada (km)","Tarefas","Diligências","Conferir no Google Maps"];
+  const linhas = lista.map(({ r, n, dil, alertas, link }) => [
+    alertas.join(" | "), r.baseEnderecoUsado || "", r.cliente, r.endereco || "(sem endereço)", r.cidade,
+    LBL[r.locFonte] || r.locFonte, r.distFonte, r.distOneWayKm.toFixed(1).replace(".", ","), r.distKm.toFixed(1).replace(".", ","), n, dil, link
+  ]);
+  const csvLine = arr => arr.map(v => { const t = String(v ?? ""); return /[",;\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; }).join(";");
+  const csv = "\uFEFF" + [csvLine(headers), ...linhas.map(csvLine)].join("\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type:"text/csv;charset=utf-8" }));
+  a.download = "auditoria_rotas.csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  const comAlerta = lista.filter(x => x.alertas.length).length;
+  toast(`Auditoria exportada: ${lista.length} pares base→unidade, ${comAlerta} com alerta.`, "success", 4500);
+}
+
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
   const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base","Observação do custo","Check-in"];
@@ -3388,7 +3539,7 @@ function buildTableDataPages(data, pageNumStart, totalPages, rowsPerPage){
           <colgroup>${[6,6.3,7.5,15,8,5.5,7,5.5,4.5,5.5,5.8,5.5,5.5,4.8,6.2].map(w => `<col style="width:${w}%">`).join("")}</colgroup>
           <thead><tr>
             <th>Cód.</th><th>Data</th><th>Tipo</th><th>Cliente / Unidade</th><th>Município</th>
-            <th>Base</th><th>Técnico</th><th>Duração</th><th style="text-align:right">Km</th><th style="text-align:right">Tempo</th>
+            <th>Base</th><th>Técnico</th><th>Duração</th><th style="text-align:right">Km ida+volta</th><th style="text-align:right">Tempo</th>
             <th style="text-align:right">Combust. (R$)</th><th style="text-align:right">Veículo (R$)</th>
             <th style="text-align:right">Salário (R$)</th><th style="text-align:right">Hosped. (R$)</th><th style="text-align:right">Total (R$)</th>
           </tr></thead>
@@ -3729,6 +3880,7 @@ async function downloadPdfFromPreview(){
     $("overlayText").textContent = "Gerando tabela detalhada...";
     const data = State.reportData; const t = data.totals;
     const head = ["Cód.","Data","Tipo","Cliente / Unidade","Município","Base","Técnico","Duração","Km","Tempo","Combust. (R$)","Veículo (R$)","Salário (R$)","Hosped. (R$)","Total (R$)"];
+    head[8] = "Km (ida+volta)";
     const body = data.rows.map(r => [
       r.codigo || "", r.dataFormat || "", r.tipo || "",
       r.cliente || "", (r.cidade || ""), r.baseShort || "",
@@ -3877,6 +4029,7 @@ function bindEvents(){
   $("btnReload").addEventListener("click", () => { collapseHero(false); $("fileInput").click(); });
   if ($("heroToggle")) $("heroToggle").addEventListener("click", toggleHero);
   $("btnExportCSV").addEventListener("click", exportCSV);
+  $("btnAuditRoutes").addEventListener("click", exportRouteAudit);
   $("btnExportPDF").addEventListener("click", openPdfPreview);
   $("btnPdfClose").addEventListener("click", closePdfPreview);
   $("btnPdfDownload").addEventListener("click", downloadPdfFromPreview);
@@ -3894,6 +4047,30 @@ function bindEvents(){
     }
   });
   $("btnTheme").addEventListener("click", toggleTheme);
+  $("baseAddrWrap").addEventListener("click", e => {
+    const ap = e.target.closest("[data-base-apply]");
+    const lp = e.target.closest("[data-base-clear]");
+    if (ap){
+      const addr = ap.getAttribute("data-base-apply");
+      const inp = [...document.querySelectorAll(".base-coord")].find(x => x.getAttribute("data-addr") === addr);
+      aplicarCoordenadaBase(addr, inp ? inp.value : "");
+    } else if (lp){
+      delete State.geoCache[normalizeKey(lp.getAttribute("data-base-clear"))];
+      saveGeoCache();
+      recalcAfterBaseChange();
+      renderBasePanel();
+    } else if (e.target.closest("#btnRelocBase")){
+      // descarta localizações automáticas dos endereços de base (as manuais ficam) e refaz
+      State.raw.forEach(r => {
+        if (classifyBaseRaw(r.baseRaw).kind !== "outra") return;
+        const k = normalizeKey(r.baseRaw), g = State.geoCache[k];
+        if (g && !g.manual) delete State.geoCache[k];
+      });
+      saveGeoCache();
+      computeCosts(); applyFilters();
+      refineLocationsInBackground(State.raw);
+    }
+  });
   $("chkRatearViagem").addEventListener("change", e => {
     State.ratearViagem = e.target.checked;
     if (!State.raw.length) return;
