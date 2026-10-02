@@ -173,6 +173,20 @@ button{font-family:inherit}
 html[data-theme="dark"]{--invert-icons:1}
 .cfg .suffix{font-size:12px;color:var(--muted);font-weight:600}
 
+/* BASE DE PARTIDA */
+.badge.bdg-period.out{background:#ffedd5;color:#9a3412}
+html[data-theme="dark"] .badge.bdg-period.out{background:#3b2410;color:#fdba74}
+.rec-base-badge.b-custom{background:#ffedd5;color:#9a3412}
+.pdf-badge.b-custom{background:#ffedd5;color:#9a3412}
+.base-modes{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 14px}
+.base-mode{display:flex;gap:10px;align-items:flex-start;flex:1 1 320px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;cursor:pointer;background:var(--panel)}
+.base-mode:has(input:checked){border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 22%,transparent)}
+.base-mode input{margin-top:3px}
+.base-mode b{display:block;font-size:13px;color:var(--text)}
+.base-mode span{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.4}
+.base-tech-sel{border:1px solid var(--border-strong);background:var(--panel);color:var(--text);border-radius:8px;padding:5px 8px;font:inherit;font-size:12px}
+.base-addr{font-size:12px;color:var(--text-soft);line-height:1.45}
+
 /* KPI GRID */
 .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:24px}
 .kpi{background:var(--panel);border-radius:18px;padding:18px;border:1px solid var(--border);box-shadow:var(--shadow);position:relative;overflow:hidden;transition:transform .2s, background .25s, border-color .25s}
@@ -435,17 +449,17 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
 .pdf-header .pdf-h-meta{text-align:right;font-size:10px;opacity:.92;line-height:1.5}
 
 /* CAPA */
-.pdf-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:680px;text-align:center;background:linear-gradient(135deg,#0f1530 0%,#1e1b4b 55%,#312e81 100%);color:#fff;border-radius:8px;padding:60px 40px}
-.pdf-cover .cv-logo{width:64px;height:64px;border-radius:18px;background:linear-gradient(135deg,#4f46e5,#7c3aed 60%,#06b6d4);display:grid;place-items:center;box-shadow:0 14px 35px rgba(124,58,237,.55);margin-bottom:18px}
-.pdf-cover .cv-logo svg{width:38px;height:38px;color:#fff}
-.pdf-cover h1{color:#fff;font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;font-family:'Plus Jakarta Sans',sans-serif;line-height:1.1}
-.pdf-cover h2{color:#c7d2fe;font-size:15px;font-weight:600;margin-bottom:22px}
-.pdf-cover .cv-divider{width:80px;height:3px;background:linear-gradient(90deg,#06b6d4,#7c3aed);border-radius:999px;margin:0 auto 24px}
+.pdf-cover{display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:680px;text-align:center;background:#fff;color:#0f1730;padding:60px 40px}
+.pdf-cover .cv-logo{width:64px;height:64px;border-radius:18px;background:#fff;border:2px solid #4338ca;display:grid;place-items:center;margin-bottom:18px}
+.pdf-cover .cv-logo svg{width:36px;height:36px;color:#4338ca}
+.pdf-cover h1{color:#0f1730;font-size:30px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px;font-family:'Plus Jakarta Sans',sans-serif;line-height:1.1}
+.pdf-cover h2{color:#3730a3;font-size:15px;font-weight:600;margin-bottom:22px}
+.pdf-cover .cv-divider{width:80px;height:3px;background:#4338ca;border-radius:999px;margin:0 auto 24px}
 .pdf-cover .cv-meta{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:14px 28px;margin-top:22px;max-width:680px;width:100%}
-.pdf-cover .cv-meta-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);border-radius:10px;padding:12px 16px;text-align:left}
-.pdf-cover .cv-meta-card .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#a5b4fc;font-weight:700;margin-bottom:4px}
-.pdf-cover .cv-meta-card .val{font-size:13.5px;font-weight:600;color:#fff}
-.pdf-cover .cv-foot{margin-top:46px;font-size:11px;color:#94a3d4;opacity:.85}
+.pdf-cover .cv-meta-card{background:#fff;border:1px solid #9ca3af;border-radius:10px;padding:12px 16px;text-align:left}
+.pdf-cover .cv-meta-card .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#3730a3;font-weight:700;margin-bottom:4px}
+.pdf-cover .cv-meta-card .val{font-size:13.5px;font-weight:600;color:#0f1730}
+.pdf-cover .cv-foot{margin-top:46px;font-size:11px;color:#374151}
 
 /* RESUMO EXECUTIVO / KPIs */
 .pdf-section-title{font-size:14px;font-weight:800;color:#1e1b4b;letter-spacing:-.01em;margin:0 0 12px;display:flex;align-items:center;gap:9px;font-family:'Plus Jakarta Sans',sans-serif}
@@ -664,6 +678,26 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
     <div class="cfg">
       <label>🏨 Custo médio de hospedagem <span style="font-weight:500;color:var(--muted)">(ida &gt; 300 km)</span></label>
       <div class="row"><span class="suffix">R$</span><input type="number" id="cfgHospedagem" value="250" step="10" min="0" /></div>
+    </div>
+  </div>
+
+  <!-- BASE DE PARTIDA DAS ROTAS -->
+  <div class="panel" id="basePanel" style="display:none">
+    <div class="panel-head">
+      <h3><span class="dot"></span> Base de partida das rotas</h3>
+      <span class="small-info" id="baseInfo"></span>
+    </div>
+    <div class="base-modes">
+      <label class="base-mode">
+        <input type="radio" name="baseMode" value="planilha" checked />
+        <div><b>Endereço da coluna Base de cada registro</b>
+          <span>A rota sai do endereço informado na planilha, mesmo quando ele difere das bases pré-definidas. Registros que trazem só o nome de uma base conhecida (ex.: Sulacap) usam a base pré-definida.</span></div>
+      </label>
+      <label class="base-mode">
+        <input type="radio" name="baseMode" value="predefinida" />
+        <div><b>Somente bases pré-definidas</b>
+          <span>Caxias, Sulacap, Curitiba e Campos. Um endereço diferente é substituído pela base pré-definida que o técnico mais usa na planilha (ou, se não houver, a mais próxima).</span></div>
+      </label>
     </div>
   </div>
 
@@ -919,6 +953,93 @@ function resolveBaseAddressFromRaw(raw){
     estimated: !!addrLoc.estimated
   };
 }
+// Logradouros que identificam, sem ambiguidade, o endereço de cada base
+// pré-definida. Só o nome da cidade/bairro NÃO basta: "Rua X, Duque de
+// Caxias" é outro endereço e não pode ser tratado como a base de Caxias.
+const BASE_STREETS = {
+  sulacap:  [/ALB[ÉE]RICO\s+DINIZ/i],
+  caxias:   [/LEANDRO\s+DA\s+MOTA/i],
+  curitiba: [/ESCORSIN/i],
+  campos:   [/PRQ\s+ALDEIA/i, /PARQUE\s+ALDEIA/i]
+};
+const STREET_LIKE = /(^|[\s,])(RUA|AV|AVENIDA|ESTRADA|ROD|RODOVIA|TRAVESSA|ALAMEDA|PRA[ÇC]A|LARGO|PARQUE|PRQ)[\s.]|\d/i;
+
+// Classifica o texto da coluna Base:
+//  - "predefinida": é o endereço (ou apenas o apelido) de uma base já cadastrada
+//  - "outra": endereço diferente das bases pré-definidas
+//  - "vazio": sem informação
+function classifyBaseRaw(raw){
+  const s = String(raw || "").trim();
+  if (!s) return { kind:"vazio" };
+  for (const key of Object.keys(BASE_STREETS)){
+    if (BASE_STREETS[key].some(re => re.test(s))) return { kind:"predefinida", key };
+  }
+  if (STREET_LIKE.test(s)) return { kind:"outra" };
+  for (const entry of BASE_KEYWORDS){
+    if (entry.patterns.some(re => re.test(s))) return { kind:"predefinida", key: entry.key };
+  }
+  return { kind:"outra" };
+}
+
+function baseModeFor(responsavel){
+  return State.baseMode;
+}
+
+// Base pré-definida que o técnico mais usa na planilha (ignora endereços
+// diferentes). Serve de substituta quando o operador opta por só bases fixas.
+function usualPredefinedBase(responsavel){
+  if (State._usualSrc !== State.raw){
+    State._usualSrc = State.raw; State._usual = {};
+    const cnt = {};
+    State.raw.forEach(r => {
+      const c = classifyBaseRaw(r.baseRaw);
+      if (c.kind !== "predefinida") return;
+      const t = normalizeKey(r.responsavel);
+      (cnt[t] = cnt[t] || {})[c.key] = ((cnt[t] || {})[c.key] || 0) + 1;
+    });
+    Object.keys(cnt).forEach(t => {
+      State._usual[t] = Object.entries(cnt[t]).sort((a,b) => b[1]-a[1])[0][0];
+    });
+  }
+  const k = State._usual[normalizeKey(responsavel)];
+  return k ? BASES[k] : null;
+}
+
+function nearestPredefinedBase(b){
+  let best = null, bd = Infinity;
+  for (const k of Object.keys(BASES)){
+    const d = haversine(b.lat, b.lon, BASES[k].lat, BASES[k].lon);
+    if (d < bd){ bd = d; best = BASES[k]; }
+  }
+  return best;
+}
+
+// Ponto único de decisão da base de partida de um registro. Usado tanto no
+// cálculo de custos quanto na busca de distâncias rodoviárias.
+function resolveRowBase(r, dt, loc){
+  const mode = baseModeFor(r.responsavel);
+  const cls = classifyBaseRaw(r.baseRaw);
+  const legacy = () => getBase(dt ? dt.year : 2025, dt ? dt.month : 1, loc);
+  let base, origem;
+  if (cls.kind === "predefinida"){
+    base = BASES[cls.key]; origem = "predefinida";
+  } else if (cls.kind === "outra"){
+    const custom = resolveBaseAddressFromRaw(r.baseRaw);
+    if (mode === "predefinida"){
+      base = usualPredefinedBase(r.responsavel) || (custom ? nearestPredefinedBase(custom) : legacy());
+      origem = "predefinida-aproximada";
+    } else if (custom){
+      base = { ...custom, short: "Outra: " + String(custom.short || custom.name).slice(0, 18) };
+      origem = "planilha";
+    } else {
+      base = legacy(); origem = "legado";
+    }
+  } else {
+    base = legacy(); origem = "legado";
+  }
+  return { base, origem, outra: cls.kind === "outra", mode };
+}
+
 // Destino externo de referência (Curitiba)
 const DESTINO_REF = { name:"Curitiba - PR", lat:-25.4284, lon:-49.2733 };
 
@@ -1279,6 +1400,7 @@ const State = {
   chartCli: null,
   chartTech: null,
   fileName: null,
+  baseMode: "planilha",   // "planilha" = endereço da coluna Base; "predefinida" = só bases fixas
   geoCache: {}      // cache de coordenadas reais por endereço (normalizado) — ver GEO_CACHE_KEY
 };
 
@@ -1365,7 +1487,7 @@ async function resolveRoadDistances(rows, onProgress){
     const isClienteLabmedic = /LABMEDIC/i.test(r.cliente || "");
     if (isRemoto || servicoNaBase || isClienteLabmedic) continue;
     const dt = parseDate(r.dataRaw);
-    const base = resolveBaseFromRaw(r.baseRaw) || getBase(dt ? dt.year : 2025, dt ? dt.month : 1, loc);
+    const base = resolveRowBase(r, dt, loc).base;
     const k = routeKey(base.lat, base.lon, loc.lat, loc.lon);
     if (seen.has(k) || State.routeCache[k] != null) continue;
     seen.add(k);
@@ -1871,6 +1993,7 @@ function processWorkbook(wb){
   $("btnExportPDF").disabled = false;
   $("chartsPanel").style.display = "block";
   $("techPanel").style.display = "block";
+  $("basePanel").style.display = "block";
   populateFilters();
   applyFilters();
   // Recolhe o quadro de importação automaticamente e exibe status
@@ -1977,7 +2100,8 @@ function computeCosts(){
     // Base operacional: prioriza o valor da coluna "Base" da planilha
     // (índice 7 da aba Tarefas). Se ausente/desconhecida, cai no critério
     // legado por estado da unidade e data (PR → Curitiba; RJ → Caxias/Sulacap).
-    const base = resolveBaseFromRaw(r.baseRaw) || getBase(ano || 2025, mes || 1, loc);
+    const rb = resolveRowBase(r, dt, loc);
+    const base = rb.base;
     // Regra de negócio: atendimentos remotos (ex.: "ATENDIMENTO REMOTO
     // TÉCNICO"/"ATENDIMENTO REMOTO CIENTÍFICO") não envolvem deslocamento
     // físico até a unidade.
@@ -2072,6 +2196,8 @@ function computeCosts(){
     return {
       ...r,
       ano, mes, base: base.name, baseShort: base.short,
+      baseOutra: rb.outra, baseOrigem: rb.origem, baseModo: rb.mode,
+      baseEnderecoUsado: base.address || base.name, baseState: base.state || "",
       baseKey: base.key || (base === BASES.curitiba ? "curitiba"
              : base === BASES.sulacap  ? "sulacap"
              : base === BASES.campos   ? "campos"
@@ -2262,8 +2388,46 @@ function applyFilters(){
   if (State.sortKey) sortFiltered();
   updateKPIs();
   renderTechDashboard();
+  renderBasePanel();
   renderTable();
   renderCharts();
+}
+
+// ---------- PAINEL: BASE DE PARTIDA ----------
+// Mostra apenas quantos registros do período trazem um endereço de base
+// diferente das pré-definidas (sem identificar técnicos).
+function renderBasePanel(){
+  const el = $("baseInfo");
+  if (!el) return;
+  const fAno = MS.getSelected("fltAno"), fMes = MS.getSelected("fltMes");
+  const n = State.rows.filter(r => r.baseOutra &&
+    (!fAno.size || fAno.has(String(r.ano))) && (!fMes.size || fMes.has(String(r.mes)))).length;
+  el.textContent = n
+    ? `${n.toLocaleString("pt-BR")} registro(s) do período com endereço de base diferente das pré-definidas`
+    : "Nenhum endereço de base diferente das pré-definidas no período";
+}
+
+function recalcAfterBaseChange(){
+  if (!State.raw.length) return;
+  // 1) custo imediato com as coordenadas e distâncias já conhecidas
+  computeCosts();
+  applyFilters();
+  // 2) busca já as rotas rodoviárias dos novos pares base→unidade
+  //    (a tela se atualiza sozinha conforme os resultados chegam)
+  resolveRoadDistancesInBackground(State.raw);
+  // 3) se algum endereço de base ainda não foi geocodificado, resolve só
+  //    esses endereços e refaz custos e rotas com as coordenadas reais
+  const pending = [...new Set(State.raw.map(r => (r.baseRaw || "").trim()).filter(Boolean))]
+    .filter(a => classifyBaseRaw(a).kind === "outra" && !State.geoCache[normalizeKey(a)]);
+  if (!pending.length) return;
+  const myJob = ++geoJobId;
+  toast("Localizando o endereço da base no mapa e recalculando as rotas…", "info", 3500);
+  geocodeAddresses(pending).then(() => {
+    if (myJob !== geoJobId) return;
+    computeCosts();
+    applyFilters();
+    resolveRoadDistancesInBackground(State.raw);
+  });
 }
 
 // ---------- KPIs ----------
@@ -2369,6 +2533,7 @@ function renderTable(){
         let cls = "";
         if (r.baseKey === "sulacap") cls = "dec";
         else if (r.baseKey === "curitiba") cls = "pr";
+        else if (r.baseKey === "custom") cls = "out";
         v = `<span class="badge bdg-period ${cls}">${v}</span>`;
       }
       if (c.key === "tipo"){
@@ -2690,11 +2855,12 @@ function renderCharts(){
 // ---------- EXPORT ----------
 function exportCSV(){
   if (!State.filtered.length){ toast("Nada para exportar.","warn"); return; }
-  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)"];
+  const headers = ["Código","Data","Tipo","Cliente","Endereço","Município","Base","Tarefa De","Responsável","Duração","Ano","Mês","Distância (km)","Tempo (h)","Combustível (R$)","Veículo Rateio (R$)","Salário Rateio (R$)","Hospedagem (R$)","Custo Total (R$)","Endereço da base usado","Origem da base"];
   const rows = State.filtered.map(r => [
     r.codigo, r.dataFormat, r.tipo, r.cliente, r.endereco||"", r.cidade, r.base, r.tarefaDe, r.responsavel, r.duracao,
     r.ano||"", r.mes||"", r.distKm.toFixed(2), r.tempoH.toFixed(2),
-    r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2)
+    r.custoFuel.toFixed(2), r.custoVeic.toFixed(2), r.custoSal.toFixed(2), r.custoHosp.toFixed(2), r.custoTotal.toFixed(2),
+    r.baseEnderecoUsado || "", r.baseOrigem === "planilha" ? "Endereço da planilha" : (r.baseOrigem === "legado" ? "Regra por estado/data" : "Base pré-definida")
   ]);
   const csvLine = arr => arr.map(v => {
     const s = String(v??"");
@@ -2748,8 +2914,8 @@ function collectReportData(){
   const byUF = { RJ:{count:0,total:0,km:0}, PR:{count:0,total:0,km:0}, Outros:{count:0,total:0,km:0} };
   rows.forEach(r => {
     let uf = "Outros";
-    if (r.baseKey === "curitiba") uf = "PR";
-    else if (r.baseKey === "caxias" || r.baseKey === "sulacap") uf = "RJ";
+    if (r.baseState === "PR") uf = "PR";
+    else if (r.baseState === "RJ") uf = "RJ";
     byUF[uf].count++; byUF[uf].total += r.custoTotal; byUF[uf].km += r.distKm;
   });
   // Top unidades (chave = cliente + endereço)
@@ -2790,7 +2956,7 @@ function getFiltersDescription(){
 }
 
 function pdfBadgeForBase(key, short){
-  const cls = key === "sulacap" ? "b-sulacap" : (key === "curitiba" ? "b-curitiba" : "b-caxias");
+  const cls = key === "sulacap" ? "b-sulacap" : (key === "curitiba" ? "b-curitiba" : (key === "custom" ? "b-custom" : "b-caxias"));
   return `<span class="pdf-badge ${cls}">${short}</span>`;
 }
 
@@ -2810,7 +2976,7 @@ function pdfHeader(pageNum, totalPages){
 }
 
 function pdfFooter(){
-  const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h`;
+  const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h · Base de partida: ${State.baseMode === "planilha" ? "endereço da planilha" : "bases pré-definidas"}`;
   return `
     <div class="pdf-foot">
       <span><strong>GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento</span>
@@ -3153,12 +3319,8 @@ function buildTablePage(data, slice, pageNum, totalPages, isFirstTable, isLastTa
 
 /* Renderiza chart em canvas oculto e retorna dataURL (alta resolução, fundo branco) */
 function renderChartToImage(type, data){
-    result.cli = await renderChartToImage("hbar", {
-      // Truncamos em 60 chars para nomes longos, evitando deformar a
-      // barra horizontal. O número de barras continua em 8 unidades.
-      labels: data.topClients.slice(0,8).map(([,v]) => { const l = v.label || v.cliente || ""; return l.length>60?l.slice(0,60)+"…":l; }),
-      values: data.topClients.slice(0,8).map(([,v]) => v.total)
-    });
+  return new Promise(resolve => {
+    const isHBar = type === "hbar";
     const w = isHBar ? 1240 : 880;
     const h = isHBar ? 660 : 480;
     const canvas = document.createElement("canvas");
@@ -3507,6 +3669,13 @@ function bindEvents(){
     }
   });
   $("btnTheme").addEventListener("click", toggleTheme);
+  document.querySelectorAll('input[name="baseMode"]').forEach(el => el.addEventListener("change", () => {
+    if (!el.checked || State.baseMode === el.value) return;
+    State.baseMode = el.value;
+    recalcAfterBaseChange();
+    toast(el.value === "planilha" ? "Rotas calculadas a partir do endereço da coluna Base." : "Rotas calculadas a partir das bases pré-definidas.", "info", 3000);
+  }));
+
   ["fltTipo","fltCliente","fltAno","fltMes","fltResp"].forEach(id => MS.init(id, { onChange: applyFilters }));
   $("btnClearFilters").addEventListener("click", () => {
     $("fltSearch").value = "";
@@ -3538,7 +3707,8 @@ function openRecordDetail(r){
   sub.textContent = `Código ${r.codigo || "—"} · ${r.tipo || "—"}`;
 
   const baseKeyClass = r.baseKey === "sulacap" ? "b-sulacap"
-                     : r.baseKey === "curitiba" ? "b-curitiba" : "";
+                     : r.baseKey === "curitiba" ? "b-curitiba"
+                     : r.baseKey === "custom" ? "b-custom" : "";
 
   const hasCusto = (r.custoTotal || 0) > 0;
   const semCustoMotivo = (() => {
@@ -3612,7 +3782,7 @@ function openRecordDetail(r){
           Base Operacional
         </div>
         <div class="rec-field"><span class="rec-field-label">Base</span><span class="rec-field-value"><span class="rec-base-badge ${baseKeyClass}">${escapeHtml(r.baseShort) || "—"}</span></span></div>
-        <div class="rec-field"><span class="rec-field-label">Endereço da Base</span><span class="rec-field-value">${escapeHtml((BASES[r.baseKey]||{}).address || r.base || "") || "—"}</span></div>
+        <div class="rec-field"><span class="rec-field-label">Endereço da Base</span><span class="rec-field-value">${escapeHtml(r.baseEnderecoUsado || r.base || "") || "—"}</span></div>
         <div class="rec-field"><span class="rec-field-label">Base Registrada na Planilha</span><span class="rec-field-value muted">${escapeHtml(r.baseRaw) || "—"}</span></div>
       </div>
 
@@ -3868,7 +4038,7 @@ function downloadRecordPDF(){
     yR = drawSectionTitle(xR, colW, yR, "Base Operacional", [245, 158, 11]);
     yR = drawKV(xR, colW, yR, "Base", r.baseShort);
     yR = drawKV(xR, colW, yR, "Nome Completo da Base", r.base);
-    yR = drawKV(xR, colW, yR, "Endereço da Base", (BASES[r.baseKey]||{}).address || "—");
+    yR = drawKV(xR, colW, yR, "Endereço da Base", r.baseEnderecoUsado || "—");
     yR = drawKV(xR, colW, yR, "Base Registrada na Planilha", r.baseRaw || "—");
     yR += 2;
 
