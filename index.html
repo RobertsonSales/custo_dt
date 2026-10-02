@@ -2647,7 +2647,7 @@ function renderBasePanel(){
   doPeriodo.forEach(r => { const a = (r.baseRaw || "").trim(); enderecos.set(a, (enderecos.get(a) || 0) + 1); });
   if (!enderecos.size){ wrap.innerHTML = ""; return; }
   const esc = v => String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
-  let html = '<table><thead><tr><th>Endereço de base informado na planilha</th><th style="text-align:right">Registros</th><th>Localização usada no cálculo</th><th>Coordenadas (copie do Google Maps)</th></tr></thead><tbody>';
+  let html = '<table><thead><tr><th>Endereço de base (planilha / coordenadas informadas)</th><th style="text-align:right">Registros</th><th>Localização usada no cálculo</th><th>Coordenadas (copie do Google Maps)</th></tr></thead><tbody>';
   [...enderecos.entries()].forEach(([addr, n]) => {
     const g = State.geoCache[normalizeKey(addr)];
     const loc = resolveAddressLocation(addr);
@@ -2655,7 +2655,15 @@ function renderBasePanel(){
     if (g && g.manual) status = '<span class="badge bdg-period">Coordenadas informadas</span>';
     else if (loc && loc.fonte === "geo") status = `<span class="badge bdg-period">Endereço localizado${g && g.precisao === "rua" ? " (nível da rua)" : ""}</span>`;
     else status = '<span class="badge bdg-period out">Centro do município (aproximado)</span>';
-    html += `<tr><td class="base-addr">${esc(addr)}</td><td style="text-align:right">${n.toLocaleString("pt-BR")}</td><td>${status}</td>
+    let addrCell = esc(addr);
+    if (g && g.manual){
+      const coord = g.lat.toFixed(6) + ", " + g.lon.toFixed(6);
+      const novo = g.label || ("Coordenadas informadas: " + coord);
+      addrCell = `<div style="font-weight:700">${esc(novo)}</div>`
+        + `<div style="font-size:11px;opacity:.65;margin-top:3px">Na planilha: <s>${esc(addr)}</s></div>`;
+      if (!g.label && !g.revTried){ g.revTried = true; reverseGeocodeBase(addr, g.lat, g.lon); }
+    }
+    html += `<tr><td class="base-addr">${addrCell}</td><td style="text-align:right">${n.toLocaleString("pt-BR")}</td><td>${status}</td>
       <td><input class="base-tech-sel base-coord" data-addr="${esc(addr)}" placeholder="-22.6358, -43.1089" value="${g && g.manual ? g.lat.toFixed(6) + ", " + g.lon.toFixed(6) : ""}" style="min-width:190px" />
       <button class="btn" data-base-apply="${esc(addr)}" style="padding:5px 10px;font-size:12px">Aplicar</button>
       ${g && g.manual ? `<button class="btn" data-base-clear="${esc(addr)}" style="padding:5px 10px;font-size:12px">Remover</button>` : ""}</td></tr>`;
