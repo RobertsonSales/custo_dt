@@ -721,7 +721,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
           <span>Por padrão a viagem é lançada inteira na primeira tarefa e as demais ficam com custo zero, pois o deslocamento ocorreu uma só vez. Com o rateio, km, tempo e custos são divididos igualmente entre elas; o total do período não muda.</span></div>
       </label>
     </div>
-      <div class="table-wrap" id="baseAddrWrap"></div>
+      <div class="table-wrap" id="baseAddrWrap" style="display:none"></div>
   </div>
 
   <!-- KPIs -->
@@ -2672,24 +2672,44 @@ function applyFilters(){
 }
 
 // ---------- PAINEL: BASE DE PARTIDA ----------
-// Mostra apenas quantos registros do período trazem um endereço de base
-// diferente das pré-definidas (sem identificar técnicos).
+// O quadro de endereços de base só é exibido quando há técnico selecionado no
+// filtro Responsável E esse técnico tem, no período filtrado, registros com
+// base de partida diferente das bases pré-cadastradas. Nos demais casos o
+// painel mostra apenas os critérios de rota e custo.
 function renderBasePanel(){
   const el = $("baseInfo");
   if (!el) return;
+  const wrap = $("baseAddrWrap");
+  const ocultarQuadro = () => { if (wrap){ wrap.innerHTML = ""; wrap.style.display = "none"; } };
   const per = getPeriodo();
   const fAno = per ? new Set() : MS.getSelected("fltAno"), fMes = per ? new Set() : MS.getSelected("fltMes");
+  const fResp = MS.getSelected("fltResp");
   const doPeriodo = State.rows.filter(r => r.baseOutra &&
     (per ? rowInPeriodo(r, per) : ((!fAno.size || fAno.has(String(r.ano))) && (!fMes.size || fMes.has(String(r.mes))))));
-  el.textContent = doPeriodo.length
-    ? `${doPeriodo.length.toLocaleString("pt-BR")} registro(s) do período com endereço de base diferente das pré-definidas`
-    : "Nenhum endereço de base diferente das pré-definidas no período";
 
-  const wrap = $("baseAddrWrap");
+  if (!fResp.size){
+    el.textContent = doPeriodo.length
+      ? `${doPeriodo.length.toLocaleString("pt-BR")} registro(s) do período com base diferente das pré-definidas — selecione o técnico no filtro Responsável para ver o endereço`
+      : "Nenhum endereço de base diferente das pré-definidas no período";
+    ocultarQuadro();
+    return;
+  }
+
+  const doTecnico = doPeriodo.filter(r => fResp.has(r.responsavel));
+  if (!doTecnico.length){
+    el.textContent = fResp.size > 1
+      ? "Os técnicos selecionados partem apenas de bases pré-definidas no período"
+      : "O técnico selecionado parte apenas de bases pré-definidas no período";
+    ocultarQuadro();
+    return;
+  }
+  el.textContent = `${doTecnico.length.toLocaleString("pt-BR")} registro(s) do técnico com endereço de base diferente das pré-definidas`;
+
   if (!wrap) return;
+  wrap.style.display = "";
   const enderecos = new Map();
-  doPeriodo.forEach(r => { const a = (r.baseRaw || "").trim(); enderecos.set(a, (enderecos.get(a) || 0) + 1); });
-  if (!enderecos.size){ wrap.innerHTML = ""; return; }
+  doTecnico.forEach(r => { const a = (r.baseRaw || "").trim(); enderecos.set(a, (enderecos.get(a) || 0) + 1); });
+  if (!enderecos.size){ ocultarQuadro(); return; }
   const esc = v => String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
   let html = '<table><thead><tr><th>Endereço de base (planilha / coordenadas informadas)</th><th style="text-align:right">Registros</th><th>Localização usada no cálculo</th><th>Coordenadas (copie do Google Maps)</th></tr></thead><tbody>';
   [...enderecos.entries()].forEach(([addr, n]) => {
