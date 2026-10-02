@@ -658,7 +658,7 @@ html[data-theme="dark"] .pdf-modal-wrap{background:#0a0e1c}
               <span class="tag">📍 RJ até Nov/2025: Duque de Caxias</span>
               <span class="tag">📍 RJ a partir de Dez/2025: Jardim Sulacap</span>
               <span class="tag">📍 PR (sempre): Curitiba · São Brás</span>
-              <span class="tag">⛽ R$ 5,50/L · 🚗 70 km/h · 220h/mês</span>
+              <span class="tag">⛽ R$ 5,50/L · 🗺️ km e tempo: Google Maps · 220h/mês</span>
             </div>
           </div>
           <label class="upload-card" id="uploadCard" for="fileInput">
@@ -1448,12 +1448,47 @@ const State = {
 // O cálculo de custo passou a exigir SEMPRE as coordenadas geográficas reais
 // dos endereços de partida (base operacional) e destino (coluna "Endereço"),
 // em vez de depender só de heurísticas por nome de cidade/bairro. Para isso,
-// cada endereço distinto da planilha é geocodificado (Nominatim/OpenStreetMap)
+// cada endereço distinto da planilha é geocodificado (Google Geocoding API)
 // uma única vez e o resultado fica salvo em cache local (localStorage), então
 // as importações seguintes reaproveitam as coordenadas já resolvidas.
-const GEO_CACHE_KEY = "diligencias.geocache.v1";
-const GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/search";
-const GEOCODE_DELAY_MS = 1100; // respeita o limite de 1 requisição/seg. do serviço público
+// Toda geocodificação, rota, km e tempo vêm EXCLUSIVAMENTE da API oficial do
+// Google Maps, acessada pelo proxy /api/maps (api/maps.js na Vercel). A chave
+// fica só na variável de ambiente GOOGLE_MAPS_API_KEY — nunca neste arquivo.
+const GEO_CACHE_KEY = "diligencias.geocache.v2";
+const GEO_CACHE_KEY_V1 = "diligencias.geocache.v1"; // v1 = coordenadas do Nominatim (descartadas)
+const MAPS_PROXY = "/api/maps";
+const MAPS_CONCURRENCY = 5;
+
+// Chama o proxy. Retorna o JSON em caso de sucesso; {notFound:true} quando o
+// Google não achou o endereço/rota; {fatal:true,error} quando o problema vale
+// para o lote todo (chave ausente/negada, API desabilitada, cota, sem proxy).
+async function mapsApi(payload){
+  try {
+    const resp = await fetch(MAPS_PROXY, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+    let data = null;
+    try { data = await resp.json(); } catch(_){}
+    if (resp.ok) return data;
+    if (resp.status === 404) return { notFound:true };
+    const fatal = resp.status === 503 || resp.status === 500 || resp.status === 403 || resp.status === 405;
+    return { fatal, error: (data && data.error) || ("Proxy /api/maps indisponível (HTTP " + resp.status + ")") };
+  } catch(e){
+    return { fatal:true, error:"Sem acesso ao proxy /api/maps (rede ou publicação)." };
+  }
+}
+// Pool simples de concorrência (o Google suporta bem mais que 1 req/s).
+async function runPool(items, worker, n){
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+    while (i < items.length){ const idx = i++; await worker(items[idx], idx); }
+  }));
+}
+let mapsFatalNotified = false;
+function notifyMapsFatal(msg){
+  if (mapsFatalNotified) return;
+  mapsFatalNotified = true;
+  toast("Google Maps indisponível: " + msg + " Km, tempo e custo de deslocamento ficam zerados até a conexão ser restabelecida.", "error", 9000);
+  setTimeout(() => { mapsFatalNotified = false; }, 30000);
+}
 
 // Nomes de estado (como devolvidos pela geocodificação) -> sigla UF
 const STATE_NAME_TO_UF = {
@@ -1466,59 +1501,59 @@ function loadGeoCache(){
   try {
     const raw = localStorage.getItem(GEO_CACHE_KEY);
     State.geoCache = raw ? JSON.parse(raw) : {};
-  } catch(_){ State.geoCache = {}; }
+    // Migração: do cache antigo (Nominatim) só sobrevivem as coordenadas
+    // informadas manualmente pelo operador; o resto é geocodificado de novo
+    // pelo Google Maps.
+    const old = localStorage.getItem(GEO_CACHE_KEY_V1);
+    if (old){
+      const v1 = JSON.parse(old);
+      Object.keys(v1).forEach(k => { if (v1[k] && v1[k].manual && !State.geoCache[k]) State.geoCache[k] = v1[k]; });
+      localStorage.removeItem(GEO_CACHE_KEY_V1);
+      saveGeoCache();
+    }
+  } catch(_){ State.geoCache = State.geoCache || {}; }
 }
 function saveGeoCache(){
   try { localStorage.setItem(GEO_CACHE_KEY, JSON.stringify(State.geoCache)); } catch(_){}
 }
 
 // ----------------------------------------------------------------------------
-// Distância rodoviária real (OSRM/OpenStreetMap) — em vez de aproximar a
-// quilometragem via linha reta + 25%, cada par (base → destino) é consultado
-// uma única vez no serviço público OSRM e o resultado (km rodoviários,
-// aderentes ao que o Google Maps mostra) fica em cache local, para que
-// importações e recálculos seguintes não repitam a rede.
+// Distância e tempo de deslocamento — Google Maps Routes API (via /api/maps).
+// Cada par (base → unidade) é consultado uma única vez; km (ida) e segundos
+// (ida) ficam em cache local. Não há estimativa alternativa: sem resposta do
+// Google, o par fica "pendente" e km/tempo/custo permanecem zerados.
 // ----------------------------------------------------------------------------
-const ROUTE_CACHE_KEY = "diligencias.routecache.v1";
-const OSRM_ENDPOINT = "https://router.project-osrm.org/route/v1/driving";
-const ROUTE_DELAY_MS = 350; // cortesia com o serviço público
+const ROUTE_CACHE_KEY = "diligencias.routecache.v2"; // v1 = OSRM (descartado)
 
 function loadRouteCache(){
   try {
     const raw = localStorage.getItem(ROUTE_CACHE_KEY);
     State.routeCache = raw ? JSON.parse(raw) : {};
+    localStorage.removeItem("diligencias.routecache.v1");
   } catch(_){ State.routeCache = {}; }
 }
 function saveRouteCache(){
   try { localStorage.setItem(ROUTE_CACHE_KEY, JSON.stringify(State.routeCache)); } catch(_){}
 }
 function routeKey(lat1, lon1, lat2, lon2){
-  // 5 casas ≈ 1 m — suficiente para identificar o par sem duplicar por ruído.
-  const q = n => Number(n).toFixed(5);
+  const q = n => Number(n).toFixed(5); // ≈ 1 m
   return `${q(lat1)},${q(lon1)}->${q(lat2)},${q(lon2)}`;
 }
-function getCachedRoadDistanceKm(lat1, lon1, lat2, lon2){
+// {km, sec} da IDA, ou null se ainda não obtido do Google.
+function getCachedRoute(lat1, lon1, lat2, lon2){
   if (!State.routeCache) return null;
   const v = State.routeCache[routeKey(lat1, lon1, lat2, lon2)];
-  return (typeof v === "number" && isFinite(v)) ? v : null;
+  return (v && isFinite(v.km) && isFinite(v.sec)) ? v : null;
 }
-async function fetchRoadDistanceKm(lat1, lon1, lat2, lon2){
-  const url = `${OSRM_ENDPOINT}/${lon1},${lat1};${lon2},${lat2}?overview=false`;
-  try {
-    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const route = data && data.routes && data.routes[0];
-    if (!route || !isFinite(route.distance)) return null;
-    return route.distance / 1000;
-  } catch(_){ return null; }
+async function fetchGoogleRoute(lat1, lon1, lat2, lon2){
+  const r = await mapsApi({ action:"route", origin:{ lat:lat1, lon:lon1 }, destination:{ lat:lat2, lon:lon2 } });
+  if (r && r.fatal) return { fatal:true, error:r.error };
+  if (!r || r.notFound || !isFinite(r.km) || !isFinite(r.sec)) return null;
+  return { km:r.km, sec:r.sec };
 }
-// Percorre todas as linhas já com coordenadas resolvidas e, para cada par
-// (base, unidade) ainda não cacheado, busca a distância rodoviária real.
 async function resolveRoadDistances(rows, onProgress){
   if (!State.routeCache) State.routeCache = {};
-  const pending = [];
-  const seen = new Set();
+  const pending = [], seen = new Set();
   for (const r of rows){
     const loc = resolveLocation(r.cliente, r.endereco);
     if (!loc) continue;
@@ -1528,31 +1563,26 @@ async function resolveRoadDistances(rows, onProgress){
     if (isRemoto || servicoNaBase || isClienteLabmedic) continue;
     const dt = parseDate(r.dataRaw);
     const base = resolveRowBase(r, dt, loc).base;
+    if (haversine(base.lat, base.lon, loc.lat, loc.lon) <= 2) continue; // unidade = base
     const k = routeKey(base.lat, base.lon, loc.lat, loc.lon);
-    if (seen.has(k) || State.routeCache[k] != null) continue;
+    if (seen.has(k) || State.routeCache[k]) continue;
     seen.add(k);
     pending.push({ k, base, loc });
   }
-  if (!pending.length) return { resolved: 0, failed: 0, total: 0 };
-  let resolved = 0, failed = 0, consecutiveFails = 0;
-  for (let i = 0; i < pending.length; i++){
-    const p = pending[i];
-    const km = await fetchRoadDistanceKm(p.base.lat, p.base.lon, p.loc.lat, p.loc.lon);
-    if (km != null){
-      State.routeCache[p.k] = km;
-      resolved++;
-      consecutiveFails = 0;
-    } else {
-      failed++;
-      consecutiveFails++;
-      if (consecutiveFails >= 6) break; // serviço indisponível — para o lote
-    }
-    if (resolved && (resolved % 8 === 0 || i === pending.length - 1)) saveRouteCache();
-    if (onProgress) onProgress(i+1, pending.length, resolved, failed);
-    await new Promise(res => setTimeout(res, ROUTE_DELAY_MS));
-  }
+  if (!pending.length) return { resolved:0, failed:0, total:0, fatal:null };
+  let resolved = 0, failed = 0, done = 0, fatal = null;
+  await runPool(pending, async p => {
+    if (fatal) return;
+    const rt = await fetchGoogleRoute(p.base.lat, p.base.lon, p.loc.lat, p.loc.lon);
+    if (rt && rt.fatal){ fatal = rt.error; return; }
+    if (rt){ State.routeCache[p.k] = rt; resolved++; } else failed++;
+    done++;
+    if (resolved && resolved % 10 === 0) saveRouteCache();
+    if (onProgress) onProgress(done, pending.length, resolved, failed);
+  }, MAPS_CONCURRENCY);
   saveRouteCache();
-  return { resolved, failed, total: pending.length };
+  if (fatal) failed = pending.length - resolved;
+  return { resolved, failed, total:pending.length, fatal };
 }
 
 // Consulta o serviço público de geocodificação para um único endereço.
@@ -1594,84 +1624,58 @@ function buildGeocodeVariants(raw){
   return out.filter(v => !seen.has(v.q) && seen.add(v.q)).slice(0, 3);
 }
 
-// Uma consulta ao Nominatim. Retorna objeto (achou), null (sem resultado
-// aceitável) ou undefined (falha de rede/serviço — não vale tentar variantes).
+// Uma consulta ao Google Geocoding (via proxy). Retorna objeto (achou), null
+// (sem resultado aceitável) ou undefined (falha geral — não vale tentar mais).
 async function geocodeQuery(queryText, originalAddress){
-  const q = `${queryText}, Brasil`;
-  const url = `${GEOCODE_ENDPOINT}?format=jsonv2&addressdetails=1&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`;
-  try {
-    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
-    if (!resp.ok) return undefined;
-    const data = await resp.json();
-    if (!data || !data.length) return null;
-    const hit = data[0];
-    const lat = parseFloat(hit.lat), lon = parseFloat(hit.lon);
-    if (!isFinite(lat) || !isFinite(lon)) return null;
-    // Validação de sanidade: o geocodificador devolve o "melhor palpite", que
-    // pode ser uma rua homônima em outro município. Rejeita o resultado se
-    // ele cair longe do município citado no endereço ou em outra UF.
-    const fc = originalAddress.indexOf(",");
-    const dica = matchCityHint(normalizeKey(fc !== -1 ? originalAddress.slice(fc + 1) : originalAddress));
-    if (dica && haversine(lat, lon, dica.lat, dica.lon) > 70) return null;
-    const addr = hit.address || {};
-    const cityName = addr.city || addr.town || addr.municipality || addr.village || addr.suburb || null;
-    const stateNameKey = normalizeKey(addr.state || "");
-    const uf = STATE_NAME_TO_UF[stateNameKey] || extractUfFromAddress(originalAddress) || null;
-    const ufEnd = extractUfFromAddress(originalAddress);
-    if (ufEnd && STATE_NAME_TO_UF[stateNameKey] && ufEnd !== STATE_NAME_TO_UF[stateNameKey]) return null;
-    return {
-      lat, lon,
-      city: cityName ? `${cityName}${uf ? " - "+uf : ""}` : (uf ? ufFallbackLocation(uf)?.city?.replace(" (estimado)","") : null),
-      state: uf
-    };
-  } catch(_){
-    return undefined; // sem internet, CORS bloqueado, timeout, etc.
-  }
+  const r = await mapsApi({ action:"geocode", address:`${queryText}, Brasil` });
+  if (r && r.fatal){ State.mapsFatal = r.error; return undefined; }
+  if (!r || r.notFound || !isFinite(r.lat) || !isFinite(r.lon)) return null;
+  // Resultado aproximado (só o centro de bairro/cidade) não serve como ponto exato.
+  if (r.locationType === "APPROXIMATE" && r.partial) return null;
+  // Sanidade: rejeita se cair longe do município citado ou em outra UF.
+  const fc = originalAddress.indexOf(",");
+  const dica = matchCityHint(normalizeKey(fc !== -1 ? originalAddress.slice(fc + 1) : originalAddress));
+  if (dica && haversine(r.lat, r.lon, dica.lat, dica.lon) > 70) return null;
+  const ufEnd = extractUfFromAddress(originalAddress);
+  const uf = (r.uf && KNOWN_UFS.includes(r.uf)) ? r.uf : (ufEnd || null);
+  if (ufEnd && r.uf && KNOWN_UFS.includes(r.uf) && ufEnd !== r.uf) return null;
+  return {
+    lat:r.lat, lon:r.lon,
+    city: r.city ? `${r.city}${uf ? " - "+uf : ""}` : (uf ? ufFallbackLocation(uf)?.city?.replace(" (estimado)","") : null),
+    state: uf,
+    locationType: r.locationType
+  };
 }
 
 async function geocodeOne(address){
-  const variantes = buildGeocodeVariants(address);
-  for (let i = 0; i < variantes.length; i++){
-    const r = await geocodeQuery(variantes[i].q, address);
-    if (r) return { ...r, precisao: variantes[i].precisao };
-    if (r === undefined) return null;
-    if (i < variantes.length - 1) await new Promise(res => setTimeout(res, GEOCODE_DELAY_MS));
+  // O Google entende bem o endereço bruto; as variantes "limpas" ficam de reserva.
+  const orig = String(address).trim();
+  const consultas = [orig, ...buildGeocodeVariants(orig).map(v => v.q)].filter((q, i, a) => a.indexOf(q) === i).slice(0, 3);
+  for (const q of consultas){
+    const r = await geocodeQuery(q, address);
+    if (r === undefined) return undefined;
+    if (r) return { ...r, precisao: (r.locationType === "ROOFTOP" || r.locationType === "RANGE_INTERPOLATED") ? "endereço" : "rua" };
   }
   return null;
 }
 
-// Geocodifica em lote (sequencial, respeitando limite de requisições) todos os
-// endereços ainda não presentes no cache. Atualiza a barra de progresso do
-// overlay de importação. Se a primeira tentativa falhar por completo (ex.:
-// ambiente sem acesso à internet), interrompe cedo e segue com a heurística
-// local para todo o restante, sem travar a importação.
+// Geocodifica em lote (com concorrência) os endereços ainda fora do cache.
 async function geocodeAddresses(addresses, onProgress){
   const pending = addresses.filter(a => a && !State.geoCache[normalizeKey(a)]);
-  if (!pending.length) return { resolved:0, failed:0, skipped:true };
-  let resolved = 0, failed = 0, consecutiveFailures = 0;
-  for (let i = 0; i < pending.length; i++){
-    const addr = pending[i];
-    const key = normalizeKey(addr);
+  if (!pending.length) return { resolved:0, failed:0, skipped:true, fatal:null };
+  let resolved = 0, failed = 0, done = 0, fatal = null;
+  await runPool(pending, async addr => {
+    if (fatal) return;
     const result = await geocodeOne(addr);
-    if (result){
-      State.geoCache[key] = { ...result, estimated:false, ts:Date.now() };
-      resolved++;
-      consecutiveFailures = 0;
-    } else {
-      failed++;
-      consecutiveFailures++;
-    }
-    if (onProgress) onProgress(i+1, pending.length, resolved, failed);
-    // Se muitas falhas seguidas (provável indisponibilidade do serviço/ambiente
-    // sem internet), para de tentar e deixa o restante para a heurística local.
-    if (consecutiveFailures >= 8){
-      failed += (pending.length - i - 1);
-      break;
-    }
-    if (i < pending.length - 1) await new Promise(res => setTimeout(res, GEOCODE_DELAY_MS));
-  }
+    if (result === undefined){ fatal = State.mapsFatal || "falha na geocodificação."; return; }
+    if (result){ State.geoCache[normalizeKey(addr)] = { ...result, estimated:false, ts:Date.now() }; resolved++; }
+    else failed++;
+    done++;
+    if (onProgress) onProgress(done, pending.length, resolved, failed);
+  }, MAPS_CONCURRENCY);
   saveGeoCache();
-  return { resolved, failed, skipped:false };
+  if (fatal) failed = pending.length - resolved;
+  return { resolved, failed, skipped:false, fatal };
 }
 
 // ---------- UTILS ----------
@@ -2171,7 +2175,7 @@ function refineLocationsInBackground(rows){
   const pending = uniqueAddresses.filter(a => !State.geoCache[normalizeKey(a)]);
   if (!pending.length){
     // Nada a geocodificar — mas ainda pode haver pares (base→destino) sem
-    // distância rodoviária resolvida. Dispara direto o cálculo OSRM.
+    // rota do Google resolvida. Dispara direto o cálculo das rotas.
     resolveRoadDistancesInBackground(rows);
     return;
   }
@@ -2193,15 +2197,15 @@ function refineLocationsInBackground(rows){
     if (myJob !== geoJobId || result.skipped) return;
     computeCosts();
     applyFilters();
+    if (result.fatal){ notifyMapsFatal(result.fatal); return; }
     if (result.resolved) toast(`${result.resolved} endereço(s) refinados com coordenadas reais.`, "success", 3500);
-    if (result.failed) toast(`${result.failed} endereço(s) não localizado(s) na geocodificação — mantida a estimativa por cidade/UF.`, "warn", 5500);
-    // Com as coordenadas resolvidas, calcula as distâncias rodoviárias reais
-    // (aderentes ao Google Maps) em segundo plano.
+    if (result.failed) toast(`${result.failed} endereço(s) não localizado(s) na geocodificação — mantida a localização aproximada por cidade/UF (rota calculada a partir dela).`, "warn", 5500);
+    // Com as coordenadas resolvidas, busca km e tempo no Google Maps.
     resolveRoadDistancesInBackground(rows);
   });
 }
 
-// Resolve as distâncias rodoviárias reais (OSRM) em segundo plano, atualizando
+// Resolve km e tempo de cada rota (Google Maps) em segundo plano, atualizando
 // a tela conforme os pares (base→destino) vão sendo obtidos.
 let routeJobId = 0;
 function resolveRoadDistancesInBackground(rows){
@@ -2212,7 +2216,7 @@ function resolveRoadDistancesInBackground(rows){
     if (myJob !== routeJobId) return;
     if (!announced && total > 0){
       announced = true;
-      toast(`Calculando ${total} distância(s) rodoviária(s) real(is) em segundo plano — as estimativas atuais serão substituídas automaticamente.`, "info", 4500);
+      toast(`Consultando ${total} rota(s) no Google Maps em segundo plano — km, tempo e custo serão preenchidos automaticamente.`, "info", 4500);
     }
     const now = Date.now();
     if (done === total || (resolved > 0 && (resolved % 6 === 0 || now - lastRefresh > 4000))){
@@ -2225,8 +2229,9 @@ function resolveRoadDistancesInBackground(rows){
     if (!result || !result.total) return;
     computeCosts();
     applyFilters();
-    if (result.resolved) toast(`${result.resolved} distância(s) rodoviária(s) real(is) resolvida(s) — quilometragem aderente ao Google Maps.`, "success", 4000);
-    if (result.failed) toast(`${result.failed} rota(s) não obtida(s) do serviço rodoviário — mantida a estimativa por linha reta + 35%.`, "warn", 5500);
+    if (result.fatal){ notifyMapsFatal(result.fatal); return; }
+    if (result.resolved) toast(`${result.resolved} rota(s) obtida(s) do Google Maps.`, "success", 4000);
+    if (result.failed) toast(`${result.failed} rota(s) sem resposta do Google Maps — km, tempo e custo ficam zerados nelas (sem estimativa). Use "Tentar localizar os endereços novamente".`, "warn", 7000);
   });
 }
 
@@ -2257,7 +2262,7 @@ function consolidarVisitas(rows, p){
       let nova = !cab;
       if (cab && r.ciMs != null && fimMs != null){
         const ociosoMs = r.ciMs - fimMs;
-        if (ociosoMs >= cab.tempoH * 3600 * 1000) nova = true;   // dá tempo de ir e voltar à base
+        if (!cab.distPendente && ociosoMs >= cab.tempoH * 3600 * 1000) nova = true;   // dá tempo de ir e voltar à base
       }
       if (nova){
         cab = r; n++; fimMs = null;
@@ -2332,9 +2337,10 @@ function computeCosts(){
     const unidadeKey = enderecoKey ? (clienteKey + " || " + enderecoKey) : clienteKey;
     // Rótulo amigável da unidade (cliente + município/endereço resumido)
     const unidadeLabel = r.cliente + (r.endereco ? " — " + shortAddress(r.endereco, 50) : "");
-    let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false, distFonte = "";
+    let distOneWay = 0, dist = 0, tempo = 0, mesmaBase = false, distFonte = "", distPendente = false;
     let cidade = "—";
     if (loc){
+      // Teste geométrico (não é a distância do deslocamento): unidade = própria base?
       const distRetaBase = haversine(base.lat, base.lon, loc.lat, loc.lon);
       // Quando a unidade atendida está no mesmo local da base operacional do
       // técnico (endereço coincide com a própria base), não há deslocamento.
@@ -2343,16 +2349,18 @@ function computeCosts(){
       if (mesmaBase || isRemoto || servicoNaBase || isClienteLabmedic){
         distOneWay = 0; dist = 0; tempo = 0;
       } else {
-        // Distância rodoviária real (OSRM/OpenStreetMap) — aderente ao
-        // Google Maps — quando o par (base, destino) já foi resolvido em
-        // segundo plano. Enquanto ainda não estiver disponível, aplica uma
-        // aproximação por linha reta + 35% (empiricamente mais próxima das
-        // rotas reais brasileiras do que os +25% anteriores).
-        const roadKm = getCachedRoadDistanceKm(base.lat, base.lon, loc.lat, loc.lon);
-        distFonte = roadKm != null ? "rodoviária (OSRM)" : "estimada (linha reta ×1,35)";
-        distOneWay = roadKm != null ? roadKm : distRetaBase * 1.35;
-        dist = distOneWay * 2; // ida e volta
-        tempo = dist / 70;
+        // Km e tempo vêm EXCLUSIVAMENTE do Google Maps (Routes API). Sem a
+        // resposta do Google o par fica pendente: nada é estimado.
+        const rota = getCachedRoute(base.lat, base.lon, loc.lat, loc.lon);
+        if (rota){
+          distFonte = "Google Maps (Routes API)";
+          distOneWay = rota.km;
+          dist = rota.km * 2;               // ida e volta
+          tempo = (rota.sec * 2) / 3600;    // tempo de ida e volta, em horas
+        } else {
+          distFonte = "pendente (Google Maps)";
+          distPendente = true;
+        }
       }
       cidade = loc.city + (loc.estimated ? " *" : "");
     }
@@ -2431,7 +2439,8 @@ function computeCosts(){
       viagemDuplicada,
       viagemRefCodigo,
       ehDiligencia: (!semCusto && !viagemDuplicada) ? 1 : 0,
-      viagemChave, semCusto, motivoCat, obsCusto: motivoCat ? MOTIVOS[motivoCat] : "",
+      viagemChave, semCusto, motivoCat, distPendente,
+      obsCusto: motivoCat ? MOTIVOS[motivoCat] : (distPendente ? "Rota do Google Maps ainda não obtida — km, tempo e custo não calculados" : ""),
       baseLat: base.lat, baseLon: base.lon, locLat: loc ? loc.lat : null, locLon: loc ? loc.lon : null,
       locFonte: loc ? (loc.fonte || "cidade") : "", distFonte,
       ciMs,
@@ -2732,31 +2741,22 @@ function aplicarCoordenadaBase(addr, texto){
   reverseGeocodeBase(addr, lat, lon);
 }
 
-// Descobre o endereço real das coordenadas informadas (Nominatim reverse) e o
-// passa a exibir como endereço inicial. Sem rede, permanece o texto
+// Descobre o endereço real das coordenadas informadas (Google Geocoding reverso)
+// e o passa a exibir como endereço inicial. Sem resposta, permanece o texto
 // "Coordenadas informadas: lat, lon".
-const REVERSE_ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
 async function reverseGeocodeBase(addr, lat, lon){
-  try {
-    const url = `${REVERSE_ENDPOINT}?format=jsonv2&addressdetails=1&zoom=18&accept-language=pt-BR&lat=${lat}&lon=${lon}`;
-    const resp = await fetch(url, { headers: { "Accept":"application/json" } });
-    if (!resp.ok) return;
-    const j = await resp.json();
-    const g = State.geoCache[normalizeKey(addr)];
-    if (!g || !g.manual || g.lat !== lat || g.lon !== lon) return; // mudou enquanto consultava
-    const a = (j && j.address) || {};
-    const rua = a.road || a.pedestrian || a.footway || "";
-    const bairro = a.suburb || a.neighbourhood || a.quarter || "";
-    const cidade = a.city || a.town || a.municipality || a.village || a.city_district || "";
-    const uf = STATE_NAME_TO_UF[normalizeKey(a.state || "")] || g.state || null;
-    const partes = [rua && (a.house_number ? `${rua}, ${a.house_number}` : rua), bairro, cidade && (uf ? `${cidade} - ${uf}` : cidade)].filter(Boolean);
-    if (!partes.length) return;
-    g.label = `${partes.join(", ")} (${lat.toFixed(6)}, ${lon.toFixed(6)})`;
-    if (cidade){ g.city = uf ? `${cidade} - ${uf}` : cidade; g.state = uf; }
-    saveGeoCache();
-    computeCosts();
-    applyFilters();
-  } catch(_){ /* sem rede: mantém as coordenadas como rótulo */ }
+  const j = await mapsApi({ action:"reverse", lat, lon });
+  if (!j || j.fatal || j.notFound) return;
+  const g = State.geoCache[normalizeKey(addr)];
+  if (!g || !g.manual || g.lat !== lat || g.lon !== lon) return; // mudou enquanto consultava
+  const uf = (j.uf && KNOWN_UFS.includes(j.uf)) ? j.uf : (g.state || null);
+  const partes = [j.rua && (j.numero ? `${j.rua}, ${j.numero}` : j.rua), j.bairro, j.city && (uf ? `${j.city} - ${uf}` : j.city)].filter(Boolean);
+  if (!partes.length) return;
+  g.label = `${partes.join(", ")} (${lat.toFixed(6)}, ${lon.toFixed(6)})`;
+  if (j.city){ g.city = uf ? `${j.city} - ${uf}` : j.city; g.state = uf; }
+  saveGeoCache();
+  computeCosts();
+  applyFilters();
 }
 
 function recalcAfterBaseChange(){
@@ -2764,7 +2764,7 @@ function recalcAfterBaseChange(){
   // 1) custo imediato com as coordenadas e distâncias já conhecidas
   computeCosts();
   applyFilters();
-  // 2) busca já as rotas rodoviárias dos novos pares base→unidade
+  // 2) busca já as rotas do Google Maps dos novos pares base→unidade
   //    (a tela se atualiza sozinha conforme os resultados chegam)
   resolveRoadDistancesInBackground(State.raw);
   // 3) se algum endereço de base ainda não foi geocodificado, resolve só
@@ -2947,7 +2947,7 @@ function renderTable(){
   $("tableInfo").textContent = `${State.filtered.length.toLocaleString("pt-BR")} registros${State.filtered.length>MAX? ` (exibindo os primeiros ${MAX})`:""}`;
   $("footInfo").innerHTML = `
     <span>* Município marcado com asterisco indica coordenada estimada por cidade/UF (usada apenas quando o endereço não pôde ser geocodificado com precisão)</span>
-    <span>Distância partida→destino calculada sempre a partir das coordenadas geográficas reais dos endereços (geocodificação), com acréscimo de +25% sobre a linha reta para aproximar o trajeto rodoviário.</span>
+    <span>Distância e tempo de deslocamento partida→destino obtidos exclusivamente da API oficial do Google Maps (rota de carro entre as coordenadas geocodificadas dos endereços).</span>
     <span>Base operacional definida pela coluna <strong>Base</strong> da planilha (Duque de Caxias, Jardim Sulacap, Campos dos Goytacazes ou São Brás/Curitiba).</span>
   `;
 }
@@ -3231,7 +3231,7 @@ function exportRouteAudit(){
   const lista = [...pares.values()].map(({ r, n, dil }) => {
     const alertas = [];
     if (["cidade","uf","generico"].includes(r.locFonte)) alertas.push("Unidade localizada apenas pelo centro do município — distância pode divergir muito do real");
-    if (/estimada/.test(r.distFonte)) alertas.push("Distância por linha reta ×1,35 (rota rodoviária ainda não obtida)");
+    if (r.distPendente) alertas.push("Rota do Google Maps não obtida — km, tempo e custo zerados nesta linha");
     if (r.baseFonte && r.baseFonte !== "geo" && r.baseFonte !== "cadastrada") alertas.unshift("BASE localizada só pelo centro do município — informe as coordenadas no painel \"Critérios de rota e custo\"");
     if (r.distOneWayKm > 150) alertas.push("Distância de ida acima de 150 km — conferir");
     if (r.distOneWayKm > 0 && r.distOneWayKm < 3) alertas.push("Distância muito curta — conferir se unidade e base não coincidem");
@@ -3240,7 +3240,7 @@ function exportRouteAudit(){
                + "&destination=" + encodeURIComponent(dest);
     return { r, n, dil, alertas, link };
   }).sort((a, b) => (b.alertas.length - a.alertas.length) || (b.r.distOneWayKm - a.r.distOneWayKm));
-  const headers = ["Alertas","Base (endereço usado)","Unidade","Endereço da unidade","Município considerado","Fonte da localização","Fonte da distância","Distância de IDA usada (km)","Ida e volta usada (km)","Tarefas","Diligências","Conferir no Google Maps"];
+  const headers = ["Alertas","Base (endereço usado)","Unidade","Endereço da unidade","Município considerado","Fonte da localização","Fonte da distância/tempo","Distância de IDA usada (km)","Ida e volta usada (km)","Tarefas","Diligências","Conferir no Google Maps"];
   const linhas = lista.map(({ r, n, dil, alertas, link }) => [
     alertas.join(" | "), r.baseEnderecoUsado || "", r.cliente, r.endereco || "(sem endereço)", r.cidade,
     LBL[r.locFonte] || r.locFonte, r.distFonte, r.distOneWayKm.toFixed(1).replace(".", ","), r.distKm.toFixed(1).replace(".", ","), n, dil, link
@@ -3396,7 +3396,7 @@ function pdfHeader(pageNum, totalPages){
 }
 
 function pdfFooter(){
-  const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · 70km/h · Base de partida: ${State.baseMode === "planilha" ? "endereço da planilha" : "bases pré-definidas"}`;
+  const params = `${$("cfgFuelPrice").value} R$/L · ${$("cfgConsumo").value} km/L · Veíc. R$ ${$("cfgVeic").value}/mês · Sal. R$ ${$("cfgSalario").value}/mês · 220h/mês · km/tempo: Google Maps · Base de partida: ${State.baseMode === "planilha" ? "endereço da planilha" : "bases pré-definidas"}`;
   return `
     <div class="pdf-foot">
       <span><strong>GRUPO LABMEDIC - Diligências Técnicas · Avaliação de Custos em Deslocamento</span>
@@ -3504,8 +3504,8 @@ function buildSummaryPage(data, pageNum, totalPages){
         <div class="pdf-info-row"><span class="k">Custo mensal do veículo</span><span class="v">${fmtBRL(parseFloat($("cfgVeic").value))}</span></div>
         <div class="pdf-info-row"><span class="k">Custo mensal do salário</span><span class="v">${fmtBRL(parseFloat($("cfgSalario").value))}</span></div>
         <div class="pdf-info-row"><span class="k">Hospedagem (ida &gt; 300 km)</span><span class="v">${fmtBRL(parseFloat($("cfgHospedagem").value)||0)}</span></div>
-        <div class="pdf-info-row"><span class="k">Velocidade média / Jornada</span><span class="v">70 km/h · 220 h/mês</span></div>
-        <div class="pdf-info-row"><span class="k">Base de quilometragem</span><span class="v">Rota rodoviária real (OSRM/OpenStreetMap)</span></div>
+        <div class="pdf-info-row"><span class="k">Tempo de deslocamento / Jornada</span><span class="v">Google Maps · 220 h/mês</span></div>
+        <div class="pdf-info-row"><span class="k">Base de quilometragem</span><span class="v">Google Maps (Routes API)</span></div>
       </div>
       <div class="pdf-info-card info-pr">
         <h4><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> Bases Operacionais</h4>
@@ -4246,7 +4246,7 @@ function openRecordDetail(r){
       <div class="rec-kpi k-time">
         <div class="rec-kpi-lbl">Tempo de Deslocamento</div>
         <div class="rec-kpi-val">${fmtHrMin(r.tempoH)}</div>
-        <div class="rec-kpi-sub">A 70 km/h médios</div>
+        <div class="rec-kpi-sub">Tempo de rota (Google Maps)</div>
       </div>
       <div class="rec-kpi k-base">
         <div class="rec-kpi-lbl">Base Operacional</div>
@@ -4664,8 +4664,8 @@ function downloadRecordPDF(){
     pdf.setFontSize(7.6);
     const method = [
       "• Distância partida → destino calculada a partir das coordenadas geográficas reais dos",
-      "  endereços, com acréscimo de +25% sobre a linha reta para aproximar o trajeto rodoviário.",
-      "• Tempo de deslocamento estimado a uma velocidade média de 70 km/h.",
+      "  endereços, obtida exclusivamente da API oficial do Google Maps.",
+      "• Tempo de deslocamento (ida e volta) obtido da API oficial do Google Maps.",
       "• Custos de veículo e salário rateados proporcionalmente sobre a jornada mensal de 220h.",
       "• Hospedagem incluída somente quando a distância só de ida excede 300 km.",
       "• Remoto, bancada, interno ou cliente LABMEDIC não geram custo de deslocamento."
