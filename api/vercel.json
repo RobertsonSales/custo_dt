@@ -1,1 +1,4 @@
-
+{
+  "regions": ["gru1"],
+  "functions": { "api/maps.js": { "maxDuration": 15 } }
+}
